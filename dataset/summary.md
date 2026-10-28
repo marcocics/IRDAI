@@ -9,13 +9,13 @@
 
 | Domain | Count | Resolution | Bit depth | Compression | Labels |
 | --- | --- | --- | --- | --- | --- |
-| IR | 4,298 | 384x288 | 8 | JPG | XML |
-| IR | 3,073 | 1280x1024 | 8 | JPG | XML |
-| IR | 700 | 960x576 | 8 | JPG | XML |
-| IR | 163 | 640x512 | 8 | JPG | XML |
-| IR | 137 | 768x576 | 8 | JPG | XML |
-| IR | 30 | 704x576 | 8 | JPG | XML |
-| IR | 1 | 6912x576 | 8 | JPG | XML |
+| IR | 4,298 | 384x288 | 8 | JPG | JSON |
+| IR | 3,073 | 1280x1024 | 8 | JPG | JSON |
+| IR | 700 | 960x576 | 8 | JPG | JSON |
+| IR | 163 | 640x512 | 8 | JPG | JSON |
+| IR | 137 | 768x576 | 8 | JPG | JSON |
+| IR | 30 | 704x576 | 8 | JPG | JSON |
+| IR | 1 | 6912x576 | 8 | JPG | JSON |
 | IR | 520 | 384x288 | 8 | JPG | N/A |
 | IR | 359 | 1280x1024 | 8 | JPG | N/A |
 | IR | 79 | 960x576 | 8 | JPG | N/A |
