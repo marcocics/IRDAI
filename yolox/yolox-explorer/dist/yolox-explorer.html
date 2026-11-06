@@ -1,0 +1,1124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YOLOX-S · Architecture explorer</title>
+<style>
+:root{color-scheme:light dark;--bg:light-dark(#f7f8fa,#10151c);--panel:light-dark(#fff,#19222d);--ink:light-dark(#172737,#e0e9f2);--muted:light-dark(#536577,#a6b6c6);--line:light-dark(#becbd7,#4b6074);--accent:light-dark(#126c86,#75d6eb);--soft:light-dark(#edf7fa,#193542)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,sans-serif}header{padding:28px 32px 16px}h1{font-size:25px;font-weight:650;margin:0 0 5px}p{margin:5px 0;color:var(--muted)}.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:0 32px 18px}button{font:inherit;color:inherit;cursor:pointer}button:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:4px}.tool{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 12px}.hint{font-size:13px;color:var(--muted)}#viewport{overflow:auto;border-block:1px solid var(--line);min-height:360px;max-height:70vh;padding:52px 40px;background-image:radial-gradient(var(--line) .7px,transparent .7px);background-size:18px 18px}#canvas{width:max-content;min-width:100%;transform-origin:top left}.flow{display:flex;align-items:center;width:max-content;gap:0}.node{flex:none;position:relative;min-width:130px}.node>.label{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:18px 15px;min-width:130px;max-width:210px;min-height:100px;width:100%}.label strong{font-size:15px;font-weight:600}.label small{font-size:12px;color:var(--muted)}.label .action{color:var(--accent);font-size:12px}.node.open{background:var(--panel);border:1px solid var(--accent);border-radius:12px;padding:0 20px 22px}.node.open>.label{border:0;background:transparent;min-height:65px;max-width:none;align-items:flex-start;padding:12px 0;flex-direction:row;justify-content:space-between;gap:24px}.node.open>.label small{align-self:center}.node.open>.label .action{align-self:center}.node.selected>.label{background:var(--soft)}.node.open{border-color:var(--line)}.node.open.selected{background:var(--soft)}.node.open.selected>.label{background:transparent}.arrow{width:40px;flex:none;color:var(--muted);text-align:center;font-size:22px}.parallel{display:flex;align-items:stretch;width:max-content;gap:14px}.lanes{display:flex;flex-direction:column;justify-content:center;gap:16px;border-inline:2px solid var(--line);padding:14px 18px}.lane{display:flex;align-items:center;gap:0}.lane-name{font-size:12px;color:var(--muted);width:90px;padding-right:12px}.parallel>.arrow{align-self:center}.tap{position:absolute;bottom:-19px;left:4px;font-size:11px;color:var(--accent);white-space:nowrap}#details{padding:24px 32px;max-width:1050px}#details h2{font-size:18px;margin:0 0 7px}#details p{color:var(--ink)}#details .meta{font-family:ui-monospace,monospace;color:var(--accent);margin-bottom:10px}footer{padding:0 32px 25px;font-size:12px;color:var(--muted)}a{color:var(--accent)}@media(max-width:600px){header{padding:20px 18px 12px}.toolbar{padding:0 18px 15px}#viewport{padding:35px 20px}#details{padding:20px 18px}footer{padding-inline:18px}}@media(prefers-reduced-motion:reduce){*{animation:none!important}}
+body{-webkit-user-select:none;user-select:none}
+#viewport{position:relative;overflow:hidden;height:65vh;min-height:360px;max-height:750px;padding:0;touch-action:none;cursor:grab;overscroll-behavior:contain}
+#viewport.dragging,#viewport.dragging button{cursor:grabbing}
+#canvas{position:absolute;left:0;top:0;min-width:0}
+.arrow{height:1px;visibility:hidden}.parallel{gap:0}.tap{display:none}
+.connections{position:absolute;inset:0;overflow:visible;pointer-events:none;width:100%;height:100%}.connections path{fill:none;stroke:var(--muted);stroke-width:1.5}.connections .neck-edge{stroke:var(--muted)}.connections text{fill:var(--accent);font:12px system-ui,sans-serif;paint-order:stroke;stroke:var(--panel);stroke-width:4px;stroke-linejoin:round}
+.backbone-subtitle{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:4px}
+.toolbar{padding-top:18px}
+html,body{height:100%;overflow:hidden}main{height:100%}#viewport{width:100%;height:100%;min-height:0;max-height:none;border:0}
+#input-popup{position:fixed;z-index:10;width:330px;max-width:calc(100vw - 24px);padding:16px 18px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px #0002;font-size:14px;pointer-events:none}#input-popup[hidden]{display:none}#input-popup strong{display:block;margin-bottom:8px}#input-popup dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0}#input-popup dt{color:var(--muted)}#input-popup dd{margin:0}
+#focus-popup{position:fixed;z-index:10;width:460px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:hidden;padding:16px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px #0002;font-size:13px;pointer-events:none}#focus-popup[hidden]{display:none}#focus-popup strong{font-size:14px}#focus-popup p{margin:8px 0 0}#focus-popup svg{width:100%;height:auto;display:block}#focus-popup svg text{fill:var(--ink);font:13px system-ui,sans-serif}#focus-popup .cube{animation:rearrange-cube 14s ease-in-out infinite;transform:translate(var(--sx),var(--sy))}#focus-popup .cube polygon{stroke:var(--panel);stroke-width:.5}#focus-popup .cube-b{fill:#438fdf}#focus-popup .cube-g{fill:#46ae78}#focus-popup .cube-r{fill:#e2706b}@keyframes rearrange-cube{0%,18%,100%{transform:translate(var(--sx),var(--sy))}62%,82%{transform:translate(var(--tx),var(--ty))}}@media(prefers-reduced-motion:reduce){#focus-popup .cube{animation:none;transform:translate(var(--tx),var(--ty))}}
+.arrow{width:160px}.connections text{fill:var(--ink);font-size:11px}
+[data-id="backbone"]:not(.open)>.label,[data-id="neck"]:not(.open)>.label{min-height:240px}
+.label strong sub{font-size:.72em;font-weight:400;white-space:nowrap}
+#conv-popup{position:fixed;z-index:10;width:690px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:hidden;padding:16px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px #0002;font-size:13px;pointer-events:none}#conv-popup[hidden]{display:none}#conv-popup svg{display:block;width:100%;height:auto}#conv-popup p{text-align:center;font-size:12px;margin:6px 0 0}#conv-popup svg text{fill:var(--ink);font:12px system-ui,sans-serif}#conv-popup .pixel{fill:var(--panel);stroke:var(--line)}#conv-popup .padding-pixel{fill:var(--bg);stroke:var(--line);stroke-dasharray:3 2}#conv-popup .output-written{fill:var(--soft)}#conv-popup .kernel-window{fill:var(--accent);fill-opacity:.14;stroke:var(--accent);stroke-width:2}#conv-popup .active-result{stroke:var(--accent);stroke-width:2}
+.node>.label{max-width:none;width:max-content;min-width:130px}.label strong{white-space:nowrap}.node.open>.label{width:100%}
+#bn-popup{position:fixed;z-index:10;width:410px;max-width:calc(100vw - 24px);padding:18px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px #0002;font-size:14px;pointer-events:none}#bn-popup[hidden]{display:none}#bn-popup math{display:block;font-size:25px;margin:22px 0;text-align:center}#bn-popup p{color:var(--ink);margin:8px 0 0}#bn-popup .bn-step{float:right;color:var(--muted);font-size:12px}#bn-popup .bn-description{min-height:84px}#bn-popup .bn-footnote{font-size:12px;color:var(--muted)}
+#bn-popup{pointer-events:auto}#bn-formula{display:flex;justify-content:center;align-items:center;min-height:90px;white-space:nowrap}#bn-popup math{display:inline-block;margin:16px 0;font-size:25px;white-space:nowrap}#bn-popup .bn-navigation{display:flex;align-items:center;gap:7px;float:right}#bn-popup .bn-step{float:none}#bn-popup .bn-navigation button{border:0;background:transparent;color:var(--ink);font-size:22px;line-height:1;padding:2px 6px;border-radius:4px}#bn-popup .bn-navigation button:hover{background:var(--soft)}
+#input-popup,#focus-popup,#conv-popup{pointer-events:auto}
+#bn-popup:has(.bn-navigation) .bn-description{min-height:110px}#bn-formula math:has(msub){font-size:21px}
+#bn-popup.bn-comparison{width:740px}#bn-popup.bn-comparison #bn-formula{display:block;white-space:normal}#bn-popup .bn-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:18px}#bn-popup .bn-column{min-width:0}#bn-popup .bn-column+ .bn-column{border-left:1px solid var(--line);padding-left:20px}#bn-popup .bn-column h3{font-size:15px;text-align:center;margin:0}#bn-popup .bn-column math{display:block;font-size:20px;margin:18px 0}#bn-popup .bn-updates math{font-size:16px}#bn-popup.bn-comparison .bn-description{display:none}#bn-popup .bn-column p{font-size:13px}#bn-popup .bn-column .variance-note{font-size:11px;color:var(--muted)}@media(max-width:550px){#bn-popup .bn-columns{grid-template-columns:1fr}#bn-popup .bn-column+ .bn-column{border-left:0;border-top:1px solid var(--line);padding:14px 0 0}#bn-popup{max-height:calc(100vh - 24px);overflow:auto}}
+#bn-popup .bn-heading{display:flex;align-items:center;gap:12px;flex-wrap:wrap}#bn-popup .bn-navigation{float:none}
+#input-popup,#focus-popup,#conv-popup,#bn-popup{-webkit-user-select:text;user-select:text}
+#bn-popup .bn-navigation,#bn-popup .bn-navigation *{-webkit-user-select:none;user-select:none;caret-color:transparent}
+#input-popup,#input-popup *,#focus-popup,#focus-popup *,#conv-popup,#conv-popup *,#bn-popup,#bn-popup *{caret-color:transparent}
+#silu-popup{position:fixed;z-index:10;width:550px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;padding:18px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px #0002;font-size:14px;pointer-events:auto;-webkit-user-select:text;user-select:text}#silu-popup[hidden]{display:none}#silu-popup,#silu-popup *{caret-color:transparent}#silu-popup .silu-heading{display:flex;align-items:center;gap:12px}#silu-popup .silu-navigation{display:flex;align-items:center;gap:7px;-webkit-user-select:none;user-select:none}#silu-popup button{border:0;background:transparent;font-size:22px;padding:2px 6px;line-height:1;border-radius:4px}#silu-popup button:hover{background:var(--soft)}#silu-stage{color:var(--muted);font-size:12px}#silu-popup svg{display:block;width:100%;height:auto}#silu-popup svg text{fill:var(--ink);font:13px system-ui,sans-serif}#silu-popup p{color:var(--ink);margin:9px 0 0;font-size:13px}#silu-popup math{font-size:19px;display:block;text-align:center;margin:12px 0}#silu-popup .silu-curve{fill:none;stroke:var(--accent);stroke-width:2.5}#silu-popup .silu-axis{stroke:var(--line);stroke-width:1}#silu-popup .silu-tangent{stroke:var(--muted);stroke-width:1.5;stroke-dasharray:4 3}
+.inline-math{font-family:"Cambria Math","STIX Two Math",serif;font-style:italic;white-space:nowrap;font-size:1.08em}
+#silu-popup .silu-formula-slot{height:90px;display:flex;align-items:center;justify-content:center}#silu-popup .silu-formula-slot math{margin:0}#silu-content{overflow:visible}
+#silu-popup{max-height:none;overflow:visible}
+#input-popup,#focus-popup,#conv-popup,#bn-popup,#silu-popup{max-height:calc(100vh - 24px);overflow:auto;scrollbar-width:none;-ms-overflow-style:none;overscroll-behavior:contain}
+#input-popup::-webkit-scrollbar,#focus-popup::-webkit-scrollbar,#conv-popup::-webkit-scrollbar,#bn-popup::-webkit-scrollbar,#silu-popup::-webkit-scrollbar{display:none}
+#diagram-controls{position:fixed;top:16px;left:16px;z-index:5;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 16px #0001;max-width:calc(100vw - 32px)}#diagram-controls strong{display:block;margin-bottom:8px;font-size:16px}#diagram-controls nav{display:flex;gap:6px;flex-wrap:wrap}#diagram-controls button{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font-size:13px}#diagram-controls button:hover{background:var(--soft)}
+#diagram-controls{background:transparent;border:0;box-shadow:none;padding:0}#diagram-controls strong{font-size:34px;font-weight:500;color:var(--muted);opacity:.65;letter-spacing:.04em;margin-bottom:6px}#diagram-controls nav{align-items:center;gap:10px}#diagram-controls button{display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;border-radius:0;padding:4px 0;color:var(--muted)}#diagram-controls button:hover{background:transparent;color:var(--ink)}#diagram-home{margin-right:3px}
+.node.open.inline-branches{border:0;background:transparent;padding:0}.inline-branches>.parallel>.lanes{border:0;padding:0;gap:36px}
+.node.shortcut-anchor{min-width:0;width:0;height:1px}.lane:has(.shortcut-anchor){min-height:24px}
+.lanes{border-inline:0}
+#add-popup{position:fixed;z-index:10;width:410px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;scrollbar-width:none;overscroll-behavior:contain;padding:18px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px #0002;font-size:14px;pointer-events:auto;-webkit-user-select:text;user-select:text}#add-popup[hidden]{display:none}#add-popup::-webkit-scrollbar{display:none}#add-popup,#add-popup *{caret-color:transparent}#add-popup math{display:block;text-align:center;font-size:22px;margin:22px 0 8px}
+#concat-popup{position:fixed;z-index:10;width:500px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;scrollbar-width:none;overscroll-behavior:contain;padding:18px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px #0002;font-size:14px;pointer-events:auto;-webkit-user-select:text;user-select:text}#concat-popup[hidden]{display:none}#concat-popup::-webkit-scrollbar{display:none}#concat-popup,#concat-popup *{caret-color:transparent}#concat-popup svg{width:100%;height:auto;display:block}#concat-popup svg text{fill:var(--ink);font:12px system-ui,sans-serif}#concat-popup p{font-size:13px;color:var(--ink);margin:8px 0 0}#concat-popup .concat-range{display:flex;align-items:center;gap:7px}#concat-popup .branch-swatch{width:10px;height:10px;display:inline-block;flex:none}#concat-popup .concat-shape{text-align:center;font-family:"Cambria Math",serif;margin-top:12px}
+
+/* The SPP unpooled path is a wire, not an operation. */
+.node.passthrough-anchor{min-width:0;width:0;height:1px}.lane:has(.passthrough-anchor){min-height:24px}
+[data-id="pools"]:not(.open)>.label,[data-id="sppcat"]>.label{min-height:160px}
+
+#maxpool-popup{position:fixed;z-index:10;width:720px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;scrollbar-width:none;overscroll-behavior:contain;padding:18px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px #0002;font-size:14px;pointer-events:auto;-webkit-user-select:text;user-select:text}#maxpool-popup[hidden]{display:none}#maxpool-popup::-webkit-scrollbar{display:none}#maxpool-popup,#maxpool-popup *{caret-color:transparent}#maxpool-popup svg{display:block;width:100%;height:auto}#maxpool-popup svg text{fill:var(--ink);font:11px system-ui,sans-serif}#maxpool-popup p{font-size:13px;text-align:center;color:var(--ink);margin:7px 0}#maxpool-popup .pool-pixel{fill:var(--panel);stroke:var(--line)}#maxpool-popup .pool-padding{fill:var(--bg);stroke:var(--line);stroke-dasharray:2 2}#maxpool-popup .pool-written{fill:var(--soft)}#maxpool-popup .pool-window{fill:var(--accent);fill-opacity:.12;stroke:var(--accent);stroke-width:2}#maxpool-popup .pool-max{fill:none;stroke:var(--accent);stroke-width:2.5}
+
+/* Collapsed neck paths encode increasing/decreasing spatial resolution. */
+.taper-frame{display:none}
+.node[class*="taper-"]:not(.open)>.label{position:relative;border:0;background:transparent;min-height:150px;padding:38px 28px;isolation:isolate}
+.node[class*="taper-"]:not(.open)>.label>.taper-frame{display:block;position:absolute;inset:0;width:100%;height:100%;z-index:-1;overflow:visible}
+.taper-frame polygon{fill:var(--panel);stroke:var(--line);stroke-width:1}
+.node.selected>.label>.taper-frame polygon{fill:var(--soft)}
+
+/* Explicit information controls are siblings of the operation button. */
+.popup-info{position:absolute;right:7px;bottom:7px;z-index:2;display:flex;align-items:center;justify-content:center;width:14px;height:14px;padding:0;border:1px solid var(--muted);border-radius:50%;background:var(--panel);color:var(--muted);font:normal 10px system-ui,sans-serif;line-height:1;cursor:pointer;user-select:none;-webkit-user-select:none;caret-color:transparent}
+
+.node:has(>.popup-info)>.label{padding-bottom:30px}
+
+#topdown-popup{position:fixed;z-index:10;width:680px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;scrollbar-width:none;overscroll-behavior:contain;padding:18px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px #0002;font-size:14px;user-select:text}
+#topdown-popup[hidden]{display:none}#topdown-popup::-webkit-scrollbar{display:none}#topdown-popup *{caret-color:transparent}#topdown-popup svg{display:block;width:100%;height:auto}#topdown-popup svg text{fill:var(--ink);font:12px system-ui,sans-serif}#topdown-popup p{text-align:center;color:var(--ink);font-size:13px;margin:8px 0 0}
+
+#upsample-popup{position:fixed;z-index:10;width:500px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;scrollbar-width:none;overscroll-behavior:contain;padding:18px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px #0002;font-size:14px;user-select:text}
+#upsample-popup[hidden]{display:none}#upsample-popup::-webkit-scrollbar{display:none}#upsample-popup *{caret-color:transparent}#upsample-popup svg{display:block;width:100%;height:auto}#upsample-popup svg text{fill:var(--ink);font:13px system-ui,sans-serif}#upsample-popup p{text-align:center;color:var(--ink);font-size:13px;margin:8px 0 0}
+
+/* Reserve internal routing lanes for retained top-down features. */
+
+/* Both expanded paths need internal lanes for retained features and scale outputs. */
+[data-id="heads"]>.label{min-height:240px}
+
+/* The fine-scale input passes through bottom-up unchanged in a wire lane. */
+[data-id="neckbottomup"].open{padding-left:65px}
+[data-id="neckbottomup"].open>.flow{padding-top:65px}
+
+/* Keep routing lanes available even when the two neck paths are collapsed. */
+
+/* Leave clearance below the routed middle-scale output at every zoom. */
+
+[data-id="neck"].open{padding-bottom:200px}
+[data-id="neck"].open>.flow{padding-top:115px}
+
+/* Compact heads keep the fine-scale bypass above their top edge. */
+[data-id="neck"].open ~ [data-id="heads"]>.label{min-height:100px}
+
+/* Reserve space for separate dark3 and retained-feature input lanes. */
+[data-id="neck"].open>.flow{padding-top:190px}
+
+/* Compact, balanced routing lanes in the neck overview. */
+[data-id="neck"].open:not(:has([data-id="necktopdown"].open,[data-id="neckbottomup"].open)){padding-bottom:100px}
+[data-id="neck"].open:not(:has([data-id="necktopdown"].open,[data-id="neckbottomup"].open))>.flow{padding-top:110px}
+
+/* Expanded detection heads use the same compact headings as other groups. */
+[data-id="heads"].open>.label{min-height:65px}
+[data-id="neck"].open ~ [data-id="heads"].open>.label{min-height:65px}
+[data-id="heads"].open>.parallel>.lanes{gap:60px}
+
+.head-output-port{position:absolute;right:0;width:0;height:0;pointer-events:none}
+
+#sigmoid-popup,#bottomup-popup{position:fixed;z-index:10;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;scrollbar-width:none;overscroll-behavior:contain;padding:18px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px #0002;font-size:14px;user-select:text}
+#sigmoid-popup{width:550px}#bottomup-popup{width:680px}
+#sigmoid-popup[hidden],#bottomup-popup[hidden]{display:none}#sigmoid-popup::-webkit-scrollbar,#bottomup-popup::-webkit-scrollbar{display:none}
+#sigmoid-popup *,#bottomup-popup *{caret-color:transparent}#sigmoid-popup svg,#bottomup-popup svg{display:block;width:100%;height:auto}
+#sigmoid-popup svg text,#bottomup-popup svg text{fill:var(--ink);font:12px system-ui,sans-serif}
+#sigmoid-popup p,#bottomup-popup p{color:var(--ink);font-size:13px;text-align:center;margin:8px 0 0}
+.sigmoid-formula{display:flex;justify-content:center;margin:16px 0}.sigmoid-formula math{font-size:25px}
+
+/* Keep information controls within the sloping collapsed path outline. */
+.node.taper-narrow:not(.open)>.popup-info{bottom:calc(25% + 5px);right:8px}
+.node.taper-widen:not(.open)>.popup-info{bottom:calc(5% + 5px);right:8px}
+
+#filter-info-popup{position:fixed;z-index:10;width:460px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;scrollbar-width:none;overscroll-behavior:contain;padding:18px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px #0002;font-size:14px;user-select:text}
+#filter-info-popup[hidden]{display:none}#filter-info-popup::-webkit-scrollbar{display:none}#filter-info-popup *{caret-color:transparent}#filter-info-popup p{color:var(--ink);font-size:13px;margin:10px 0 0}
+
+#filter-info-popup .confidence-example{display:block;width:100%;height:auto;margin-top:12px}
+#filter-info-popup .confidence-example text{fill:var(--ink);font:12px system-ui,sans-serif}
+
+/* Selection and expansion are distinct, keyboard-accessible controls. */
+.node>.label{position:relative}
+.box-select{position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;border-radius:inherit;background:transparent;z-index:0}
+.label>strong,.label>small{position:relative;z-index:1;pointer-events:none}
+.label>button.action{position:relative;z-index:2;border:0;padding:0;background:transparent;line-height:inherit;white-space:nowrap}
+.label>button.action:hover{color:color-mix(in srgb,var(--accent) 20%,var(--ink) 80%)}
+
+.popup-info:hover{color:var(--accent)}
+
+#filter-info-popup.nms-comparison{width:800px}
+.nms-controls{display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 0}
+.nms-controls button{border:0;background:transparent;color:var(--ink);padding:2px 6px;font-size:22px;line-height:1}
+.nms-controls span{font-size:12px;color:var(--muted)}
+.nms-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.nms-panel+ .nms-panel{border-left:1px solid var(--line);padding-left:20px}
+.nms-panel h3{font-size:14px;margin:10px 0 0;text-align:center}
+.nms-panel svg{display:block;width:100%;height:auto}
+.nms-panel svg text{fill:var(--ink);font:12px system-ui,sans-serif}
+.nms-panel .nms-legend{display:flex;justify-content:space-around;gap:6px;font-size:12px}
+.nms-panel .nms-status{min-height:65px}
+.nms-box{transition:opacity .3s ease,stroke-width .2s ease}
+.nms-controls,.nms-controls *{user-select:none}
+@media(max-width:620px){.nms-columns{grid-template-columns:1fr}.nms-panel+ .nms-panel{border-left:0;border-top:1px solid var(--line);padding-left:0;padding-top:12px}}
+@media(prefers-reduced-motion:reduce){.nms-box{transition:none}}
+
+.nms-panel:first-child{padding-right:21px}
+@media(max-width:620px){.nms-panel:first-child{padding-right:0}}
+
+/* Neck explanations: manual slides with a persistent spatial path. */
+.neck-heading,.neck-navigation{display:flex;align-items:center;gap:10px}.neck-navigation{gap:6px;user-select:none}
+.neck-navigation button{border:0;background:transparent;color:var(--ink);cursor:pointer;font:inherit;padding:3px 7px;border-radius:4px}.neck-navigation button:hover{background:var(--soft)}.neck-navigation button:focus-visible{outline:2px solid var(--accent)}
+.neck-navigation span{font-size:12px;color:var(--muted);min-width:30px;text-align:center}
+.neck-path{display:flex;justify-content:center;align-items:center;gap:12px;margin:18px 0 12px;color:var(--muted);font-size:12px}.neck-path svg{width:32px!important;height:12px!important}.neck-path span{padding:5px 9px;border-radius:4px}.neck-path .current{color:var(--ink);background:var(--soft);font-weight:600}
+.neck-popup h3{font-size:14px;text-align:center;margin:12px 0 0}.neck-popup p{line-height:1.5}
+
+.overview-popup,#neck-popup,#backbone-popup,#heads-popup{position:fixed;z-index:10;width:680px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;scrollbar-width:none;overscroll-behavior:contain;padding:18px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px #0002;font-size:14px;user-select:text}
+.overview-popup[hidden],#neck-popup[hidden],#backbone-popup[hidden],#heads-popup[hidden]{display:none}.overview-popup::-webkit-scrollbar,#neck-popup::-webkit-scrollbar,#backbone-popup::-webkit-scrollbar,#heads-popup::-webkit-scrollbar{display:none}.overview-popup *,#neck-popup *,#backbone-popup *,#heads-popup *{caret-color:transparent}
+#neck-content h3{font-size:14px;margin:12px 0 8px}#neck-content p{font-size:13px;line-height:1.5;margin:8px 0}
+
+#backbone-popup p{font-size:13px;line-height:1.5;margin:12px 0}#backbone-popup h3{font-size:14px;margin:16px 0 8px}#backbone-popup table{width:100%;border-collapse:collapse;font-size:13px}#backbone-popup th,#backbone-popup td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}#backbone-popup thead th{font-weight:600;color:var(--muted)}#backbone-popup td:nth-child(2){white-space:nowrap}
+
+#heads-popup p,#heads-popup li{font-size:13px;line-height:1.5}#heads-popup p{margin:12px 0}#heads-popup h3{font-size:14px;margin:16px 0 8px}#heads-popup ul{padding-left:20px;margin:8px 0}#heads-popup li{margin:6px 0}
+
+.overview-popup p,.overview-popup li{font-size:13px;line-height:1.5}.overview-popup p{margin:12px 0}.overview-popup h3{font-size:14px;margin:16px 0 8px}.overview-popup ul{padding-left:20px;margin:8px 0}.overview-popup li{margin:6px 0}.overview-popup .candidate-count{text-align:center;padding:10px;background:var(--soft);border-radius:5px}
+</style>
+</head>
+<body>
+<aside id="diagram-controls" aria-label="YOLOX-S diagram controls"><strong>YOLOX-S</strong><nav aria-label="Diagram navigation"><button type="button" id="diagram-home" title="Fit current diagram to screen" aria-label="Home: fit current diagram to screen"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5M5 9v12h5v-7h4v7h5V9"/></svg></button><button type="button" id="diagram-expand">+ Expand all</button><button type="button" id="diagram-collapse">− Collapse all</button></nav></aside>
+<main><div id="viewport" aria-label="Scrollable architecture diagram"><div id="canvas"></div></div></main>
+<aside id="input-popup" role="tooltip" hidden><strong>Input</strong><dl><dt>Shape</dt><dd>B × 3 × 640 × 640 (NCHW)</dd><dt>Channels</dt><dd>BGR: blue, green, red</dd><dt>Source type</dt><dd>uint8, [0 255]</dd><dt>Network type</dt><dd>float32</dd><dt>Scaling</dt><dd>none</dd><dt>Resizing</dt><dd>Preserve aspect ratio</dd><dt>Padding</dt><dd>114 (gray)</dd></dl></aside>
+<aside id="focus-popup" role="tooltip" hidden><strong>Spatial rearrangement</strong><svg id="focus-animation" viewBox="0 0 460 290" role="img" aria-label="48 colored cubes rearrange from a 4 by 4 spatial grid with 3 BGR channels into a 2 by 2 grid with 12 channels. No values are lost."></svg><p style="text-align:center">3 × H × W → 12 × H/2 × W/2</p></aside>
+<aside id="conv-popup" role="tooltip" hidden><strong id="conv-popup-title"></strong><svg id="conv-animation" viewBox="0 0 690 300" role="img" aria-label="A convolution kernel visits the input including zero padding and fills the output one value at a time."></svg><p id="conv-caption"></p><p>Example: one input channel and one illustrative filter.</p><p id="conv-channel-explanation"></p></aside>
+<aside id="bn-popup" role="dialog" aria-label="Batch normalization explanation" hidden><div class="bn-heading"><strong>Batch normalization</strong><div class="bn-navigation"><button type="button" id="bn-previous" aria-label="Previous step">‹</button><span id="bn-stage" class="bn-step"></span><button type="button" id="bn-next" aria-label="Next step">›</button></div></div><div id="bn-formula"></div><p id="bn-description" class="bn-description"></p><p class="bn-footnote">Performed independently for each channel, across batch and spatial positions during training.</p></aside>
+<aside id="silu-popup" role="dialog" aria-label="SiLU explanation" hidden><div class="silu-heading"><strong>SiLU</strong><div class="silu-navigation"><button type="button" id="silu-previous" aria-label="Previous step">‹</button><span id="silu-stage"></span><button type="button" id="silu-next" aria-label="Next step">›</button></div></div><div id="silu-content"></div></aside>
+<aside id="add-popup" role="tooltip" hidden><strong>Elementwise add</strong><math xmlns="http://www.w3.org/1998/Math/MathML" display="block" aria-label="Matrices one two three four plus five six seven eight equals six eight ten twelve"><mrow><mrow><mo>[</mo><mtable><mtr><mtd><mn>1</mn></mtd><mtd><mn>2</mn></mtd></mtr><mtr><mtd><mn>3</mn></mtd><mtd><mn>4</mn></mtd></mtr></mtable><mo>]</mo></mrow><mo>+</mo><mrow><mo>[</mo><mtable><mtr><mtd><mn>5</mn></mtd><mtd><mn>6</mn></mtd></mtr><mtr><mtd><mn>7</mn></mtd><mtd><mn>8</mn></mtd></mtr></mtable><mo>]</mo></mrow><mo>=</mo><mrow><mo>[</mo><mtable><mtr><mtd><mn>6</mn></mtd><mtd><mn>8</mn></mtd></mtr><mtr><mtd><mn>10</mn></mtd><mtd><mn>12</mn></mtd></mtr></mtable><mo>]</mo></mrow></mrow></math></aside>
+<aside id="concat-popup" role="tooltip" hidden><strong id="concat-title">Concatenate</strong><svg id="concat-animation" viewBox="0 0 500 245" role="img" aria-label="Feature-channel stacks from separate branches are appended in order, preserving their values and spatial resolution."></svg><div id="concat-ranges"></div><p class="concat-shape" id="concat-shape"></p></aside>
+<aside id="maxpool-popup" role="tooltip" hidden><strong id="maxpool-title"></strong><svg id="maxpool-animation" viewBox="0 0 720 425" role="img" aria-label="A max-pooling window scans a feature map with negative-infinity padding and copies its largest value into the output."></svg><p id="maxpool-caption"></p><p>Selects the maximum in each window, independently per channel. No learned weights.</p></aside>
+<aside id="topdown-popup" class="neck-popup" role="dialog" aria-label="Top-down explanation" hidden><div class="neck-heading"><strong>Top-down</strong><div class="neck-navigation"><button type="button" id="topdown-previous" aria-label="Previous slide">‹</button><span id="topdown-stage" aria-live="polite"></span><button type="button" id="topdown-next" aria-label="Next slide">›</button></div></div><div id="topdown-path" class="neck-path" aria-label="Path progress"></div><h3 id="topdown-title"></h3><svg id="topdown-animation" viewBox="0 0 660 165" role="img"></svg><p id="topdown-explanation"></p></aside>
+<aside id="upsample-popup" role="dialog" aria-label="Upsample ×2 explanation" hidden><strong>Upsample ×2</strong><svg id="upsample-animation" viewBox="0 0 480 235" role="img" aria-label="Illustrative nearest-neighbor upsampling: each value in a 2 by 2 input grid is copied into a 2 by 2 patch in a 4 by 4 output grid."></svg><p>Nearest-neighbor upsampling ×2 repeats each value across two rows and two columns. Channels stay unchanged.</p></aside>
+<aside id="sigmoid-popup" role="dialog" aria-label="Sigmoid explanation" hidden><strong>Sigmoid</strong><div class="sigmoid-formula"><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>σ</mi><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mfrac><mn>1</mn><mrow><mn>1</mn><mo>+</mo><msup><mi>e</mi><mrow><mo>−</mo><mi>x</mi></mrow></msup></mrow></mfrac></mrow></math></div><svg id="sigmoid-animation" viewBox="0 0 510 270" role="img" aria-label="Sigmoid maps every finite real input to a value strictly between zero and one. A moving point shows negative logits approaching zero, zero mapping to one half, and positive logits approaching one."></svg><p>Sigmoid maps a raw logit to a probability-like score between 0 and 1: negative inputs approach 0, positive inputs approach 1, and 0 maps to 0.5. Class scores are independent; they do not have to sum to 1.</p><p>Applied here only during inference. During training, BCEWithLogitsLoss already incorporates sigmoid in the loss formula, so the head passes raw logits.</p></aside>
+<aside id="bottomup-popup" class="neck-popup" role="dialog" aria-label="Bottom-up explanation" hidden><div class="neck-heading"><strong>Bottom-up</strong><div class="neck-navigation"><button type="button" id="bottomup-previous" aria-label="Previous slide">‹</button><span id="bottomup-stage" aria-live="polite"></span><button type="button" id="bottomup-next" aria-label="Next slide">›</button></div></div><div id="bottomup-path" class="neck-path" aria-label="Path progress"></div><h3 id="bottomup-title"></h3><svg id="bottomup-animation" viewBox="0 0 660 165" role="img"></svg><p id="bottomup-explanation"></p></aside>
+<aside id="filter-overview-popup" class="overview-popup" role="dialog" aria-label="Filter explanation" hidden><strong>Filter</strong><p>For a 640 × 640 input, the three detection heads produce <b>8,400 candidate boxes per image</b>: one at each location of their feature grids.</p><p class="candidate-count">80² + 40² + 20² = 6,400 + 1,600 + 400 = <b>8,400</b></p><p>These are possible detections, not 8,400 objects. Many candidates describe the background or overlap around the same object.</p><h3>Keep confident predictions</h3><p>Each candidate receives a confidence score: objectness multiplied by its highest class score. Candidates below the chosen threshold are discarded.</p><h3>Suppress duplicates</h3><p>Non-maximum suppression (NMS) keeps higher-scoring boxes and suppresses strongly overlapping alternatives. It can compare boxes within each class or across all classes.</p></aside>
+<aside id="output-popup" class="overview-popup" role="dialog" aria-label="Output explanation" hidden><strong>Output</strong><p>The output is the list of detections that remain after filtering. Each detection includes:</p><ul><li><b>A bounding box:</b> the predicted object’s position and extent.</li><li><b>A class label:</b> the predicted category, such as person or car.</li><li><b>A confidence score:</b> objectness multiplied by the score for the predicted class.</li></ul><p>The number of detections varies with the image and filtering thresholds. It can also be zero.</p></aside>
+<aside id="heads-popup" role="dialog" aria-label="Detection heads explanation" hidden><strong>Detection heads</strong><p>The detection heads turn the neck’s learned features into candidate object detections. Each head works on one of the three feature grids.</p><h3>Three scales, the same task</h3><p>The finer 80 × 80 grid is useful for small objects, the 40 × 40 grid for medium objects, and the coarser 20 × 20 grid for large objects. These are complementary scales, not strict size limits.</p><h3>What does each head predict?</h3><ul><li><b>Box:</b> where an object could be and how large it is.</li><li><b>Objectness:</b> a score indicating whether an object is present.</li><li><b>Class scores:</b> scores for categories such as person, car or bicycle.</li></ul><p>The heads produce many candidates. The filtering stage then removes low-confidence predictions and suppresses overlapping duplicates.</p></aside>
+<aside id="backbone-popup" role="dialog" aria-label="Backbone explanation" hidden><strong>Backbone · CSPDarknet</strong><p>The backbone turns image pixels into learned visual features. Earlier stages capture local patterns such as edges and textures; deeper stages combine them into more complex patterns and gather information from a wider area of the image.</p><p>As features pass through the backbone, spatial grids become smaller and the number of channels grows. This trades fine spatial resolution for richer feature representations.</p><h3>Focus · the entrance</h3><p>Focus first rearranges each 2 × 2 pixel neighborhood into channels, preserving every value during this rearrangement. A convolution then starts extracting features on the smaller grid.</p><h3>Three outputs to the neck</h3><table><thead><tr><th scope="col">Output</th><th scope="col">Grid</th><th scope="col">Contribution</th></tr></thead><tbody><tr><th scope="row">dark3</th><td>80 × 80</td><td>Finer spatial detail</td></tr><tr><th scope="row">dark4</th><td>40 × 40</td><td>Intermediate detail and context</td></tr><tr><th scope="row">dark5</th><td>20 × 20</td><td>Broader context</td></tr></tbody></table><p>The neck receives all three outputs, so it can combine features from different resolutions.</p></aside>
+<aside id="neck-popup" role="dialog" aria-label="Neck explanation" hidden><strong>Neck</strong><div id="neck-content"></div></aside>
+<aside id="filter-info-popup" role="dialog" aria-label="Filtering explanation" hidden><strong id="filter-info-title"></strong><div id="filter-info-content"></div></aside>
+<script>
+// YOLOX-S model hierarchy and tensor metadata.
+
+const n=(id,title,shape,info,children=null,extra={})=>({id,title,shape,info,children,...extra});
+const bn=(id,shape)=>n(id,'Batch normalization',shape,'Per-channel normalization. Training uses batch and spatial statistics; evaluation uses running statistics. Gamma and beta are learned. YOLOX uses ε = 0.001 and momentum = 0.03.');
+const silu=(id,shape)=>n(id,'SiLU',shape,'Elementwise activation: f(x) = x / (1 + exp(−x)). Preserves shape; introduces a smooth nonlinearity.');
+const conv=(id,cin,cout,size,k=1,s=1)=>{const block=n(id,'Conv → BN → SiLU',`${cout} × ${size} × ${size}`,`${k} × ${k} convolution, stride ${s}, padding ${(k-1)/2}. ${cin} input channels → ${cout} output channels. Bias disabled.`,[
+ n(id+'c','Convolution',`${cout} × ${size} × ${size}`,`${cout} learned filters, each ${cin} × ${k} × ${k}; stride ${s}, zero padding ${(k-1)/2}, no bias. Each output filter combines all input channels.`),bn(id+'bn',`${cout} × ${size} × ${size}`),silu(id+'s',`${cout} × ${size} × ${size}`)]);block.convolution={cin,cout,k,s};block.children[0].convolution={cin,cout,k,s};return block;};
+function bottleneck(id,c,size,res){return n(id,'Bottleneck',`${c} × ${size} × ${size}`,res?'Computes A + F(A). The residual addition is elementwise, with no extra activation after it.':'Computes F(A). Residual addition is disabled in this block.',res?[
+ n(id+'routes','Residual paths',`${c} × ${size} × ${size}`,'Both paths receive the same A. The identity path preserves A.',[{name:'F(A)',nodes:[conv(id+'1',c,c,size),conv(id+'3',c,c,size,3)]},{name:'Identity A',nodes:[n(id+'identity','Identity',`${c} × ${size} × ${size}`,'Passes this bottleneck’s input unchanged to the addition.')]}],{parallel:true}),n(id+'add','Elementwise add',`${c} × ${size} × ${size}`,'A + F(A). Adds matching values; does not concatenate channels.')]:[conv(id+'1',c,c,size),conv(id+'3',c,c,size,3)]);}
+function csp(id,c,size,count,res,cin=c){let half=c/2;return n(id,'CSP block',`${c} × ${size} × ${size}`,`Two learned projections receive the entire ${cin}-channel input. Each produces ${half} channels. The deeper path has ${count} independent bottleneck${count>1?'s':''}.`,[
+ n(id+'branches','Two branches',`${half} channels each`,'This is not a literal split of input channels. Both projections see the full input.',[{name:'Deeper',nodes:[conv(id+'deep',cin,half,size),...Array.from({length:count},(_,i)=>bottleneck(id+'b'+i,half,size,res))]},{name:'Shorter',nodes:[conv(id+'short',cin,half,size)]}],{parallel:true}),n(id+'cat','Concatenate',`${c} × ${size} × ${size}`,'Append deeper-branch channels, then shorter-branch channels, along the channel dimension. No elementwise addition.'),conv(id+'mix',c,c,size)]);}
+const spp=n('spp','Spatial pyramid pooling','512 × 20 × 20','Parallel pooling gathers context at different neighborhood sizes without changing spatial resolution.',[
+ conv('reduce',512,256,20),n('pools','Parallel pooling','256 × 20 × 20 per path','All four paths receive the same reduced tensor X. Pooling is parallel, not sequential.',[{name:'Unpooled',nodes:[n('unpooled','Identity X','256 × 20 × 20','Retains the reduced tensor X.')]},...[5,9,13].map(k=>({name:`${k} × ${k}`,nodes:[n('pool'+k,`MaxPool(${k}×${k}, s=1)`, '256 × 20 × 20',`Kernel ${k} × ${k}, stride 1, padding ${(k-1)/2}. No learned weights; no channel mixing. Padding behaves as negative infinity.`,null,{pooling:{k,s:1,padding:(k-1)/2}})]}))],{parallel:true}),n('sppcat','Concatenate','1024 × 20 × 20','Channel order: X, pool5(X), pool9(X), pool13(X). Each contributes 256 channels.'),conv('sppmix',1024,512,20)]);
+const focus=n('focus','Focus','32 × 320 × 320','Rearranges spatial values into channels, then applies convolution, BN and SiLU.',[
+ n('rearrange','Spatial rearrangement','12 × 320 × 320','Extract four interleaved slices in order: even/even, odd/even, even/odd, odd/odd (row/column, zero-based). Concatenate along channels. All values are preserved; each slice retains BGR channel order.'),conv('focusconv',12,32,320,3,1)]);
+const stages=[focus,...[[2,32,64,160,1],[3,64,128,80,3],[4,128,256,40,3],[5,256,512,20,1]].map(([d,cin,c,size,count])=>n('dark'+d,'dark'+d,`${c} × ${size} × ${size}`,`Downsampling followed by ${d===5?'SPP and ':''}a CSP block. ${d>=3?`Output also feeds the neck at stride ${2**d}.`:''}`,[conv('d'+d+'down',cin,c,size,3,2),...(d===5?[spp]:[]),csp('csp'+d,c,size,count,d!==5)],d>=3?{tap:`To neck · stride ${2**d}`} : {}))];
+const neckReduction=conv('neckreduce',512,256,20,1,1);
+neckReduction.info+=' Receives dark5: 512 × 20 × 20. Learns channel mixing at each position while keeping the 20 × 20 spatial grid. Its output will next be upsampled to 40 × 40 and combined with dark4.';
+const neckTopDown=n('necktopdown','Top-down','128 × 80 × 80','Coarse-to-fine fusion: 20 × 20 → 40 × 40 → 80 × 80. The widening shape represents spatial resolution, not channel count.',[
+ neckReduction,
+ n('neckup40','Upsample ×2','256 × 40 × 40','Nearest-neighbor upsampling. Copies each value into a 2 × 2 area independently per channel. No learned parameters.'),
+ n('neckcat40','Concatenate','512 × 40 × 40','Append dark4 after the upsampled features along channels: (256+256) × 40 × 40 → 512 × 40 × 40. No addition or averaging.',null,{concatNames:['Upsampled features','dark4']}),
+ csp('cspneck40',256,40,1,false,512),
+ conv('neckreduce40',256,128,40),
+ n('neckup80','Upsample ×2','128 × 80 × 80','Nearest-neighbor upsampling from 40 × 40 to 80 × 80. Retain the 128 × 40 × 40 input for later bottom-up fusion. No learned parameters.'),
+ n('neckcat80','Concatenate','256 × 80 × 80','Append dark3 after the upsampled features along channels: (128+128) × 80 × 80 → 256 × 80 × 80. No addition or averaging.',null,{concatNames:['Upsampled features','dark3']}),
+ csp('cspneck80',128,80,1,false,256)
+],{taper:'widen'});
+const neckBottomUp=n('neckbottomup','Bottom-up','512 × 20 × 20','Fine-to-coarse fusion: learned stride-2 convolutions downsample the 80 × 80 features, then concatenate retained top-down features and process them with CSP blocks. Produces the middle and coarse neck outputs. The 128 × 80 × 80 input also passes through unchanged to the fine-scale detection head.',[
+ conv('neckdown40',128,128,40,3,2),
+ n('neckbottomcat40','Concatenate','256 × 40 × 40','Downsampled features first, then retained top-down features: (128+128) × 40 × 40 → 256 × 40 × 40.',null,{concatNames:['Downsampled features','Retained top-down features']}),
+ csp('cspneckbottom40',256,40,1,false),
+ conv('neckdown20',256,256,20,3,2),
+ n('neckbottomcat20','Concatenate','512 × 20 × 20','Downsampled features first, then retained top-down features: (256+256) × 20 × 20 → 512 × 20 × 20.',null,{concatNames:['Downsampled features','Retained top-down features']}),
+ csp('cspneckbottom20',512,20,1,false)
+],{taper:'narrow'});
+const neckSteps=[neckTopDown,neckBottomUp];
+// Three independent detection scales, shown as inference graphs (COCO: K = 80).
+function predictionConv(id,cout,size){return n(id,'Convolution',cout+' × '+size+' × '+size,'128 input channels → '+cout+' output channels. Learned 1 × 1 filters and biases; stride 1, padding 0. No BatchNorm or activation.',null,{convolution:{cin:128,cout,k:1,s:1,bias:true}});}
+function headSigmoid(id,channels,size){return n(id,'Sigmoid',channels+' × '+size+' × '+size,'Converts each logit independently to a score in [0,1]. Inference only; training sends logits to BCEWithLogitsLoss. No softmax and no channel mixing.');}
+function detectionHead(size,cin,title){const id='head'+size;return n(id,title,'85 × '+size+' × '+size,'Independent scale head. Inference view, with 80 COCO classes: 4 box values + 1 objectness + 80 class scores per location. All hidden features have 128 channels. Separate learned weights from the other scales.',[
+ conv(id+'stem',cin,128,size),
+ n(id+'branches','Classification and regression','Two independent branches','Both branches receive the entire stem output. They have independent weights.',[
+  {name:'',nodes:[n(id+'cls','Classification','80 × '+size+' × '+size,'Two 3 × 3 feature convolutions, followed by a biased 1 × 1 prediction convolution and inference sigmoid. K = 80 classes for this COCO reference.',[conv(id+'cls1',128,128,size,3),conv(id+'cls2',128,128,size,3),predictionConv(id+'clspred',80,size),headSigmoid(id+'clssigmoid',80,size)])]},
+  {name:'',nodes:[n(id+'reg','Regression','Box values · objectness','Two shared regression-feature convolutions feed separate box and objectness predictors. Only objectness uses sigmoid.',[
+   conv(id+'reg1',128,128,size,3),conv(id+'reg2',128,128,size,3),
+   n(id+'predictions','Box and objectness predictions','Two outputs','Both predictors receive the same regression features.',[
+    {name:'',nodes:[predictionConv(id+'boxpred',4,size)]},
+    {name:'',nodes:[predictionConv(id+'objpred',1,size),headSigmoid(id+'objsigmoid',1,size)]}
+   ],{parallel:true})
+  ])]}
+ ],{parallel:true}),
+ n(id+'pack','Assemble predictions','85 × '+size+' × '+size,'Concatenates outputs along channels in order: 4 raw box values, 1 objectness score, then 80 class scores. This is concatenation, not addition. The '+size+' × '+size+' grid has '+(size*size)+' predictions. Flattening and coordinate decoding follow before filtering; raw box values do not use sigmoid.',null,{predictionAssembly:true,concatParts:[{name:'Box values',count:4},{name:'Objectness',count:1},{name:'Class scores',count:80}]})
+]);}
+const head80=detectionHead(80,128,'Small-scale detection head');
+const head40=detectionHead(40,256,'Medium-scale detection head');
+const head20=detectionHead(20,512,'Large-scale detection head');
+const headScales=[head80,head40,head20].map(head=>({name:'',nodes:[head]}));
+const filterSteps=[
+ n('confidencefilter','Confidence thresholding','N candidates','For each candidate, choose its highest class score and multiply it by objectness. Keep candidates whose confidence meets the threshold. Reference input: 8400 decoded candidates per image, from 6400 + 1600 + 400 grid positions.',null,{filterHelp:[
+ 'Each candidate box has an objectness score and a class score—the highest score among its classes.',
+ 'Confidence score = class score × objectness score',
+ 'Confidence thresholding discards candidate boxes whose confidence is below the chosen threshold.'
+ ],confidenceExample:{threshold:0.50,boxes:[{name:'Box A',classScore:0.80,objectness:0.90},{name:'Box B',classScore:0.95,objectness:0.20}]}}),
+ n('nms','Non-maximum suppression','M detections','Select the highest-confidence box, then suppress strongly overlapping lower-confidence boxes. Per-class NMS compares only the same class; class-agnostic NMS compares all classes.',null,{filterHelp:[
+ 'Several candidates may describe the same object. Within each class, select the highest-confidence remaining box and keep it.',
+ 'IoU = intersection area / union area. Suppress lower-confidence boxes whose IoU with the selected box exceeds the NMS threshold; repeat for the remaining boxes.',
+ 'Confidence thresholding removes weak predictions. NMS removes overlapping duplicates. The final count M depends on the image and thresholds.'
+ ]})
+];
+const pipeline=[n('input','Input','3 × 640 × 640','Reference input: B × 3 × 640 × 640. Default preprocessing preserves BGR order, resizes and pads with 114, transposes to CHW and converts to float32 without dividing by 255.'),n('backbone','Backbone','CSPDarknet','Extracts features sequentially. The neck receives dark3, dark4 and dark5 outputs, not just the final tensor.',stages),n('neck','Neck','3 feature scales','Combines features across resolutions. Receives dark3: B × 128 × 80 × 80, dark4: B × 256 × 40 × 40, dark5: B × 512 × 20 × 20. The top-down path reduces and upsamples dark5, fuses with dark4, then reduces and upsamples again to fuse with dark3. The bottom-up path downsamples and fuses retained top-down features. Outputs: 128 × 80 × 80, 256 × 40 × 40 and 512 × 20 × 20.',neckSteps),n('heads','Detection heads','Boxes · objectness · classes','Three independent scale heads. Each scale has its own stem, classification branch, regression branch, and prediction assembly. Inference graph; sigmoid is applied to class and objectness logits. Flattening and box decoding precede filtering.',headScales,{parallel:true}),n('filter','Filter','Thresholding · NMS','Inference postprocessing on decoded predictions: confidence = objectness × highest class score, followed by non-maximum suppression. Per-class and class-agnostic modes are illustrated.',filterSteps),n('output','Output','Final detections','Final bounding boxes with class labels and scores.')];
+</script>
+<script>
+// Shared diagram state, DOM references, and SVG helpers.
+
+const opened=new Set();let selected=null,scale=1;const index=new Map();function collect(nodes){nodes.forEach(x=>{index.set(x.id,x);if(x.children){if(x.parallel)x.children.forEach(l=>collect(l.nodes));else collect(x.children);}})}collect(pipeline);
+const canvas=document.getElementById('canvas'),details=document.createElement('section'),viewport=document.getElementById('viewport');
+
+const svgNS='http://www.w3.org/2000/svg';
+function svgElement(tag,attrs){const e=document.createElementNS(svgNS,tag);for(const [key,value] of Object.entries(attrs))e.setAttribute(key,value);return e;}
+</script>
+<script>
+// Shared click-to-open information buttons and animation cancellation.
+
+let activePopupButton=null;
+const neckPopup=document.getElementById('neck-popup');
+const backbonePopup=document.getElementById('backbone-popup');
+const headsPopup=document.getElementById('heads-popup');
+const filterOverviewPopup=document.getElementById('filter-overview-popup'),outputPopup=document.getElementById('output-popup');
+const filterInfoPopup=document.getElementById('filter-info-popup');
+const sigmoidPopup=document.getElementById('sigmoid-popup'),bottomupPopup=document.getElementById('bottomup-popup');
+const upsamplePopup=document.getElementById('upsample-popup');
+const topdownPopup=document.getElementById('topdown-popup');
+const inputPopup=document.getElementById('input-popup'),focusPopup=document.getElementById('focus-popup'),convPopup=document.getElementById('conv-popup'),bnPopup=document.getElementById('bn-popup'),siluPopup=document.getElementById('silu-popup'),addPopup=document.getElementById('add-popup'),concatPopup=document.getElementById('concat-popup'),maxpoolPopup=document.getElementById('maxpool-popup');let inputHoverTimer,focusAnimationFrame=0,convAnimationFrame=0,bnAnimationFrame=0,siluAnimationFrame=0,concatAnimationFrame=0,maxpoolAnimationFrame=0,topdownAnimationFrame=0,upsampleAnimationFrame=0,sigmoidAnimationFrame=0,bottomupAnimationFrame=0;let popupCloseTimer;const popupOpeners=new WeakMap();
+function hideInputPopup(){if(activePopupButton){activePopupButton.setAttribute('aria-expanded','false');activePopupButton=null;}clearTimeout(popupCloseTimer);cancelAnimationFrame(focusAnimationFrame);cancelAnimationFrame(convAnimationFrame);cancelAnimationFrame(bnAnimationFrame);cancelAnimationFrame(siluAnimationFrame);cancelAnimationFrame(concatAnimationFrame);cancelAnimationFrame(maxpoolAnimationFrame);cancelAnimationFrame(topdownAnimationFrame);cancelAnimationFrame(upsampleAnimationFrame);cancelAnimationFrame(sigmoidAnimationFrame);cancelAnimationFrame(bottomupAnimationFrame);clearTimeout(inputHoverTimer);filterOverviewPopup.hidden=true;outputPopup.hidden=true;headsPopup.hidden=true;backbonePopup.hidden=true;neckPopup.hidden=true;inputPopup.hidden=true;focusPopup.hidden=true;convPopup.hidden=true;bnPopup.hidden=true;siluPopup.hidden=true;addPopup.hidden=true;concatPopup.hidden=true;maxpoolPopup.hidden=true;topdownPopup.hidden=true;upsamplePopup.hidden=true;sigmoidPopup.hidden=true;bottomupPopup.hidden=true;filterInfoPopup.hidden=true;}
+function schedulePopupClose(popup){clearTimeout(popupCloseTimer);popupCloseTimer=setTimeout(()=>{if(popup.matches(':hover')||popup.contains(document.activeElement))return;hideInputPopup();},250);}
+
+function attachPopup(button,popup,convolution=null){
+ const info=document.createElement('button');info.type='button';info.className='popup-info';info.textContent='i';
+ info.title='Explanation';info.setAttribute('aria-label','Information about '+button.querySelector('strong').textContent);
+ info.setAttribute('aria-controls',popup.id);info.setAttribute('aria-expanded','false');
+ button.popupInfo=info;
+ info.addEventListener('click',e=>{
+  e.stopPropagation();const closing=activePopupButton===info&&!popup.hidden;hideInputPopup();if(closing)return;
+  activePopupButton=info;info.setAttribute('aria-expanded','true');popup.hidden=false;
+  if(popup===filterInfoPopup){document.getElementById('filter-info-title').textContent=convolution.title;const content=document.getElementById('filter-info-content');content.replaceChildren();filterInfoPopup.classList.toggle('nms-comparison',convolution.id==='nms');if(convolution.id==='nms')buildNMSComparison(content);else{for(const paragraph of convolution.filterHelp){const p=document.createElement('p');p.textContent=paragraph;content.append(p);}if(convolution.confidenceExample)appendConfidenceExample(content,convolution.confidenceExample);}}if(popup===neckPopup)showNeckExample();if(popup===sigmoidPopup)buildSigmoidAnimation();if(popup===bottomupPopup)buildBottomUpAnimation();if(popup===upsamplePopup)buildUpsampleAnimation();if(popup===topdownPopup)buildTopDownAnimation();if(popup===focusPopup)buildFocusAnimation();if(popup===convPopup)buildConvAnimation(convolution);if(popup===maxpoolPopup)buildMaxPoolAnimation(convolution);if(popup===bnPopup)buildBNAnimation();if(popup===concatPopup)buildConcatAnimation(convolution);if(popup===siluPopup){siluStep=0;showSiLUStep();}
+  const r=info.getBoundingClientRect(),gap=10,pad=12;let left=r.right-popup.offsetWidth,top=r.bottom+gap;
+  left=Math.max(pad,Math.min(left,window.innerWidth-popup.offsetWidth-pad));if(top+popup.offsetHeight>window.innerHeight-pad)top=Math.max(pad,r.top-popup.offsetHeight-gap);
+  top=Math.max(pad,Math.min(top,window.innerHeight-popup.offsetHeight-pad));
+  popup.style.left=left+'px';popup.style.top=top+'px';
+ });
+}
+window.addEventListener('blur',hideInputPopup);
+document.addEventListener('visibilitychange',hideInputPopup);
+document.addEventListener('pointerdown',e=>{if(e.target.closest('.popup-info')||e.target.closest('#filter-overview-popup,#output-popup,#heads-popup,#backbone-popup,#neck-popup,#input-popup,#focus-popup,#conv-popup,#bn-popup,#silu-popup,#add-popup,#concat-popup,#maxpool-popup,#topdown-popup,#upsample-popup,#sigmoid-popup,#bottomup-popup,#filter-info-popup'))return;hideInputPopup();});
+
+viewport.addEventListener('wheel',hideInputPopup,{passive:true});window.addEventListener('resize',hideInputPopup);window.addEventListener('keydown',e=>{if(e.key==='Escape')hideInputPopup();});
+
+function appendConfidenceExample(content,example){
+ const svg=svgElement('svg',{viewBox:'0 0 420 225',class:'confidence-example',role:'img','aria-label':'Example with threshold '+example.threshold.toFixed(2)+': Box A confidence 0.72 is kept; Box B confidence 0.19 is discarded.'});
+ const text=(value,x,y,extra={})=>{const t=svgElement('text',{x,y,'text-anchor':'middle',...extra});t.textContent=value;svg.append(t);};
+ text('Example · threshold '+example.threshold.toFixed(2),210,24);
+ example.boxes.forEach((box,i)=>{
+  const x=20+i*210,cx=x+85,score=box.classScore*box.objectness,keep=score>=example.threshold;
+  svg.append(svgElement('rect',{x:x+15,y:44,width:140,height:66,rx:3,fill:'var(--soft)',stroke:keep?'var(--accent)':'var(--muted)','stroke-width':2,...(keep?{}:{'stroke-dasharray':'5 4'})}));
+  text(box.name,cx,82);
+  text('Class score: '+box.classScore.toFixed(2),cx,136);
+  text('Objectness: '+box.objectness.toFixed(2),cx,156);
+  text(box.classScore.toFixed(2)+' × '+box.objectness.toFixed(2)+' = '+score.toFixed(2),cx,180);
+  text((keep?'Keep':'Discard')+' · '+score.toFixed(2)+(keep?' ≥ ':' < ')+example.threshold.toFixed(2),cx,208,{'font-weight':600});
+ });
+ content.append(svg);
+}
+</script>
+<script>
+// Popup rendering and animation.
+
+function focusCubeMapping(row,col,channel){return {row:Math.floor(row/2),col:Math.floor(col/2),channel:3*(2*(col%2)+(row%2))+channel};}
+function buildFocusAnimation(){
+ cancelAnimationFrame(focusAnimationFrame);
+ const svg=document.getElementById('focus-animation');svg.replaceChildren();const cubes=[];
+
+ for(let c=0;c<3;c++)for(let r=0;r<4;r++)for(let col=0;col<4;col++){
+  const target=focusCubeMapping(r,col,c),step=(Math.floor(r/2)*2+Math.floor(col/2))*4+2*(col%2)+(r%2);
+  const cube=svgElement('g',{class:'cube cube-'+['b','g','r'][c],style:'animation:none'});
+  const title=svgElement('title',{});title.textContent='('+r+', '+col+', '+['B','G','R'][c]+') → ('+target.row+', '+target.col+', channel '+target.channel+')';cube.append(title);
+  cube.append(svgElement('polygon',{points:'0,-8 7,-4 0,0 -7,-4'}),svgElement('polygon',{points:'-7,-4 0,0 0,8 -7,4',style:'filter:brightness(.8)'}),svgElement('polygon',{points:'0,0 7,-4 7,4 0,8',style:'filter:brightness(.65)'}));
+  cubes.push({cube,r,col,c,target,step});
+ }
+ const started=performance.now(),reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+ function frame(now){
+  const seconds=(Math.max(0,now-started)/1000)%14;
+  for(const item of cubes){
+   const {r,col,c,target,step}=item;
+   const progress=reduced?1:Math.max(0,Math.min(1,(seconds-1-step*.6)/.6));
+   const t=(1-Math.cos(Math.PI*progress))/2;
+   const row=r+(target.row-r)*t,column=col+(target.col-col)*t,z=c+(target.channel-c)*t;
+   const originX=110+(345-110)*t,originY=140+(240-140)*t;
+   item.cube.style.transform='translate('+(originX+(column-row)*18)+'px,'+(originY+(column+row)*10-z*12)+'px)';
+   // Paint back-to-front, including after channel layers change during rearrangement.
+   item.depth=z*100+(row+column)*10+column;
+  }
+  cubes.sort((a,b)=>a.depth-b.depth).forEach(item=>svg.append(item.cube));
+  if(!reduced)focusAnimationFrame=requestAnimationFrame(frame);
+ }
+ frame(started);
+}
+</script>
+<script>
+// Popup rendering and animation.
+
+function buildConvAnimation({cin,cout,k,s,bias=false}){
+ cancelAnimationFrame(convAnimationFrame);
+ const svg=document.getElementById('conv-animation');svg.replaceChildren();
+ const padding=(k-1)/2,size=4,extent=size+2*padding,out=Math.floor((size+2*padding-k)/s)+1,cell=28,left=235,top=65,right=540,outTop=90;
+ document.getElementById('conv-popup-title').textContent=cout+'×Conv('+k+'×'+k+', s='+s+')';
+ document.getElementById('conv-caption').textContent='Kernel '+k+' × '+k+' · stride '+s+' · zero padding '+padding;
+ document.getElementById('conv-channel-explanation').textContent='Each of the '+cout+' filters is '+cin+' × '+k+' × '+k+'. At each position, it computes a weighted sum over the '+k+' × '+k+' window across all '+cin+' input channels, producing one output value.'+(bias?' A learned bias is then added. This illustration shows the weighted-sum contribution before bias.':'');
+ function text(value,x,y,attrs={}){const e=svgElement('text',{x,y,'text-anchor':'middle',...attrs});e.textContent=value;svg.append(e);return e;}
+ text('Kernel weights',85,40);text('Input + padding',left+extent*cell/2,40);text('Output',right+out*cell/2,65);
+ const weights=k===1?[[2]]:[[1,0,-1],[2,0,-2],[1,0,-1]];
+ const kernelLeft=85-k*cell/2,kernelTop=95;
+ for(let r=0;r<k;r++)for(let c=0;c<k;c++){svg.append(svgElement('rect',{x:kernelLeft+c*cell,y:kernelTop+r*cell,width:cell,height:cell,class:'pixel output-written'}));text(weights[r][c],kernelLeft+(c+.5)*cell,kernelTop+(r+.5)*cell+4);}
+ const valueAt=(r,c)=>r<0||c<0||r>=size||c>=size?0:r*size+c+1;
+ for(let r=0;r<extent;r++)for(let c=0;c<extent;c++){const isPad=r<padding||c<padding||r>=size+padding||c>=size+padding;svg.append(svgElement('rect',{x:left+c*cell,y:top+r*cell,width:cell,height:cell,class:isPad?'padding-pixel':'pixel'}));text(valueAt(r-padding,c-padding),left+(c+.5)*cell,top+(r+.5)*cell+4);}
+ const results=[];
+ for(let r=0;r<out;r++)for(let c=0;c<out;c++){const rect=svgElement('rect',{x:right+c*cell,y:outTop+r*cell,width:cell,height:cell,class:'pixel'});svg.append(rect);const label=text('',right+(c+.5)*cell,outTop+(r+.5)*cell+4);let sum=0;for(let kr=0;kr<k;kr++)for(let kc=0;kc<k;kc++)sum+=valueAt(r*s+kr-padding,c*s+kc-padding)*weights[kr][kc];results.push({rect,label,sum,r,c});}
+ const kernel=svgElement('rect',{width:k*cell,height:k*cell,class:'kernel-window'});svg.append(kernel);
+ const connector=svgElement('path',{fill:'none',stroke:'var(--accent)','stroke-width':1.5});svg.append(connector);
+ const calculation=text('',345,282);
+ const started=performance.now();let previous=-1;
+ function frame(now){const elapsed=(Math.max(0,now-started)/1000)%(results.length*.65+1.8);const current=Math.min(results.length-1,Math.floor(elapsed/.65));if(current!==previous){previous=current;results.forEach((result,i)=>{result.label.textContent=i<=current?result.sum:'';result.rect.setAttribute('class','pixel'+(i<=current?' output-written':'')+(i===current?' active-result':''));});const result=results[current],x=left+result.c*s*cell,y=top+result.r*s*cell;kernel.setAttribute('x',x);kernel.setAttribute('y',y);connector.setAttribute('d','M '+(x+k*cell)+' '+(y+k*cell/2)+' L '+(right+result.c*cell)+' '+(outTop+(result.r+.5)*cell));calculation.textContent='Weighted sum = '+result.sum;}
+ convAnimationFrame=requestAnimationFrame(frame);}
+ frame(started);
+}
+</script>
+<script>
+// Per-channel max pooling, using each block's actual kernel, stride and padding.
+function maxPoolWindow(values, row, col, k, stride, padding) {
+  let maximum = -Infinity;
+  const winners = [];
+  for (let kr = 0; kr < k; kr++) {
+    for (let kc = 0; kc < k; kc++) {
+      const r = row * stride + kr - padding;
+      const c = col * stride + kc - padding;
+      const value = values[r]?.[c] ?? -Infinity;
+      if (value > maximum) {
+        maximum = value;
+        winners.length = 0;
+      }
+      if (value === maximum && value !== -Infinity) winners.push({ r, c });
+    }
+  }
+  return { maximum, winners };
+}
+
+function buildMaxPoolAnimation({ k, s, padding }) {
+  cancelAnimationFrame(maxpoolAnimationFrame);
+  const svg = document.getElementById('maxpool-animation');
+  svg.replaceChildren();
+  document.getElementById('maxpool-title').textContent = `MaxPool(${k}×${k}, s=${s})`;
+  document.getElementById('maxpool-caption').textContent =
+    `Kernel ${k} × ${k} · stride ${s} · −∞ padding ${padding}`;
+
+  const size = 8;
+  const extent = size + 2 * padding;
+  const cell = Math.min(26, 320 / extent);
+  const outCell = 25;
+  const left = 18, top = 47, right = 480, outTop = 95;
+  const out = Math.floor((size + 2 * padding - k) / s) + 1;
+  const values = Array.from({ length: size }, (_, r) =>
+    Array.from({ length: size }, (_, c) => ((r * 7 + c * 5) % 19) - 9));
+
+  function text(value, x, y) {
+    const element = svgElement('text', { x, y, 'text-anchor': 'middle' });
+    element.textContent = value;
+    svg.append(element);
+    return element;
+  }
+  text('Input + padding', left + extent * cell / 2, 25);
+  text('Output', right + out * outCell / 2, 75);
+  for (let r = 0; r < extent; r++) {
+    for (let c = 0; c < extent; c++) {
+      const value = values[r - padding]?.[c - padding];
+      svg.append(svgElement('rect', {
+        x: left + c * cell, y: top + r * cell,
+        width: cell, height: cell,
+        class: value === undefined ? 'pool-padding' : 'pool-pixel'
+      }));
+      text(value ?? '−∞', left + (c + .5) * cell, top + (r + .5) * cell + 4);
+    }
+  }
+
+  const results = [];
+  for (let r = 0; r < out; r++) {
+    for (let c = 0; c < out; c++) {
+      const rect = svgElement('rect', {
+        x: right + c * outCell, y: outTop + r * outCell,
+        width: outCell, height: outCell, class: 'pool-pixel'
+      });
+      svg.append(rect);
+      const label = text('', right + (c + .5) * outCell, outTop + (r + .5) * outCell + 4);
+      results.push({ r, c, rect, label, ...maxPoolWindow(values, r, c, k, s, padding) });
+    }
+  }
+  const window = svgElement('rect', { width: k * cell, height: k * cell, class: 'pool-window' });
+  const highlights = svgElement('g', {});
+  svg.append(window, highlights);
+  const currentMaximum = text('', 360, 405);
+  const started = performance.now();
+  let previous = -1;
+  function frame(now) {
+    const elapsed = Math.max(0, now - started) / 1000 % (results.length * .65 + 1.8);
+    const current = Math.min(results.length - 1, Math.floor(elapsed / .65));
+    if (current !== previous) {
+      previous = current;
+      results.forEach((result, i) => {
+        result.label.textContent = i <= current ? result.maximum : '';
+        result.rect.setAttribute('class', 'pool-pixel' + (i <= current ? ' pool-written' : ''));
+      });
+      const result = results[current];
+      window.setAttribute('x', left + result.c * s * cell);
+      window.setAttribute('y', top + result.r * s * cell);
+      highlights.replaceChildren();
+      for (const winner of result.winners) {
+        highlights.append(svgElement('rect', {
+          x: left + (winner.c + padding) * cell,
+          y: top + (winner.r + padding) * cell,
+          width: cell, height: cell, class: 'pool-max'
+        }));
+      }
+      result.rect.setAttribute('stroke', 'var(--accent)');
+      results.forEach((other, i) => { if (i !== current) other.rect.removeAttribute('stroke'); });
+      currentMaximum.textContent = `Current window’s max = ${result.maximum}`;
+    }
+    maxpoolAnimationFrame = requestAnimationFrame(frame);
+  }
+  frame(started);
+}
+</script>
+<script>
+// Popup rendering and animation.
+
+let bnStep=0;
+function showBNStep(){
+ const numerator='<mrow><mi>x</mi><mo>−</mo><mi>μ</mi></mrow>',variance='<msup><mi>σ</mi><mn>2</mn></msup>';
+ const fraction=epsilon=>'<mfrac>'+numerator+'<msqrt><mrow>'+variance+(epsilon?'<mo>+</mo><mi>ε</mi>':'')+'</mrow></msqrt></mfrac>';
+ const stages=[
+  {formula:fraction(false),text:'Subtract the channel mean, then divide by its standard deviation. For nonzero variance, this gives zero mean and unit variance.'},
+  {formula:fraction(true),text:'Add ε inside the square root to avoid division by zero and improve numerical stability when the variance is very small.'},
+  {formula:'<mi>γ</mi><mo>·</mo>'+fraction(true)+'<mo>+</mo><mi>β</mi>',text:'Restricting every channel to zero mean and unit variance can be suboptimal. Learned γ and β let each channel choose a useful scale and offset.'},
+  {formula:'<msub><mi>μ</mi><mtext>run</mtext></msub><mo>←</mo><mn>0.97</mn><msub><mi>μ</mi><mtext>run</mtext></msub><mo>+</mo><mn>0.03</mn><msub><mi>μ</mi><mtext>batch</mtext></msub>',text:'During training, μ and σ² come from the current batch and spatial positions, separately for each channel. Running mean and variance are updated using moving averages. Inference uses these stored running statistics. They are not learned by gradient descent.'}
+ ];
+ const step=stages[bnStep];
+ bnPopup.classList.toggle('bn-comparison',bnStep===3);
+ if(bnStep===3){
+  const stat=(symbol,suffix)=>'<msub><mi>'+symbol+'</mi><mtext>'+suffix+'</mtext></msub>';
+  const varianceFor=suffix=>'<msubsup><mi>σ</mi><mtext>'+suffix+'</mtext><mn>2</mn></msubsup>';
+  const math=body=>'<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow>'+body+'</mrow></math>';
+  const normalization=suffix=>math('<mi>y</mi><mo>=</mo><mi>γ</mi><mo>·</mo><mfrac><mrow><mi>x</mi><mo>−</mo>'+stat('μ',suffix)+'</mrow><msqrt><mrow>'+varianceFor(suffix)+'<mo>+</mo><mi>ε</mi></mrow></msqrt></mfrac><mo>+</mo><mi>β</mi>');
+  const meanUpdate=math(stat('μ','run')+'<mo>←</mo><mn>0.97</mn>'+stat('μ','run')+'<mo>+</mo><mn>0.03</mn>'+stat('μ','batch'));
+  const varianceUpdate=math(varianceFor('run')+'<mo>←</mo><mn>0.97</mn>'+varianceFor('run')+'<mo>+</mo><mn>0.03</mn>'+varianceFor('batch'));
+  document.getElementById('bn-formula').innerHTML='<div class="bn-columns"><section class="bn-column"><h3>Training</h3>'+normalization('batch')+'<p>Update the stored running statistics:</p><div class="bn-updates">'+meanUpdate+varianceUpdate+'</div></section><section class="bn-column"><h3>Inference</h3>'+normalization('run')+'<p>Use the stored running statistics from training.</p><p><strong>Running mean and variance are NOT updated during inference.</strong></p></section></div>';
+  document.getElementById('bn-description').textContent='';
+ }else{
+  document.getElementById('bn-formula').innerHTML='<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>y</mi><mo>=</mo>'+step.formula+'</mrow></math>';
+  document.getElementById('bn-description').textContent=step.text;
+ }
+ document.getElementById('bn-stage').textContent=(bnStep+1)+' / 4';if(!bnPopup.hidden){const r=bnPopup.getBoundingClientRect();bnPopup.style.left=Math.max(12,Math.min(r.left,window.innerWidth-bnPopup.offsetWidth-12))+'px';bnPopup.style.top=Math.max(12,Math.min(r.top,window.innerHeight-bnPopup.offsetHeight-12))+'px';}
+}
+
+function buildBNAnimation(){cancelAnimationFrame(bnAnimationFrame);bnStep=0;showBNStep();}
+document.getElementById('bn-previous').onclick=()=>{bnStep=(bnStep+3)%4;showBNStep();};
+document.getElementById('bn-next').onclick=()=>{bnStep=(bnStep+1)%4;showBNStep();};
+</script>
+<script>
+// Popup rendering and animation.
+
+let siluStep=0;
+const siluValue=x=>x/(1+Math.exp(-x));
+const siluSlope=x=>{const sigmoid=1/(1+Math.exp(-x));return sigmoid+x*sigmoid*(1-sigmoid);};
+function showSiLUStep(){
+ cancelAnimationFrame(siluAnimationFrame);
+ document.getElementById('silu-stage').textContent=(siluStep+1)+' / 2';
+ const content=document.getElementById('silu-content');content.replaceChildren();
+ const math=body=>'<div class="silu-formula-slot"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow>'+body+'</mrow></math></div>';
+ if(siluStep===0)content.innerHTML=math('<mi>f</mi><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mfrac><mi>x</mi><mrow><mn>1</mn><mo>+</mo><msup><mi>e</mi><mrow><mo>−</mo><mi>x</mi></mrow></msup></mrow></mfrac>');
+ else content.innerHTML=math('<mfrac><mrow><mi>d</mi><mi>L</mi></mrow><mrow><mi>d</mi><mi>w</mi></mrow></mfrac><mo>=</mo><mfrac><mrow><mi>d</mi><mi>L</mi></mrow><mrow><mi>d</mi><mi>f</mi><mo>(</mo><mi>x</mi><mo>)</mo></mrow></mfrac><mo>·</mo><msup><mi>f</mi><mo>′</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo><mo>·</mo><mfrac><mrow><mi>d</mi><mi>x</mi></mrow><mrow><mi>d</mi><mi>w</mi></mrow></mfrac>');
+ const svg=svgElement('svg',{viewBox:'0 0 510 270',role:'img','aria-label':siluStep===0?'SiLU activation curve':'SiLU curve with a moving tangent showing its derivative'});content.append(svg);
+ function text(value,x,y,attrs={}){const e=svgElement('text',{x,y,'text-anchor':'middle',...attrs});e.textContent=value;svg.append(e);return e;}
+ let update=()=>{};
+  const px=x=>45+(x+5)*42,py=y=>224-(y+1)*31;
+  svg.append(svgElement('path',{d:'M 45 '+py(0)+' H 465 M '+px(0)+' 38 V 224',class:'silu-axis'}));
+  for(const x of [-4,-2,0,2,4])text(x,px(x),246);
+  for(const y of [0,2,4])text(y,28,py(y)+4);
+  text('x',484,py(0)+4);text('f(x)',px(0),24);
+  let d='';for(let i=0;i<=200;i++){const x=-5+i*.05;d+=(i?' L ':'M ')+px(x)+' '+py(siluValue(x));}svg.append(svgElement('path',{d,class:'silu-curve'}));
+ if(siluStep===0){const p=document.createElement('p');p.textContent='Applied elementwise: positive values mostly pass through; negative values are smoothly suppressed. Tensor shape stays unchanged.';content.append(p);}else{
+  const tangent=svgElement('path',{class:'silu-tangent'}),dot=svgElement('circle',{r:4,fill:'var(--accent)'});svg.append(tangent,dot);
+  const slope=text('',370,24);
+  update=seconds=>{const x=-4+8*(.5-.5*Math.cos(seconds*Math.PI/6)),y=siluValue(x),derivative=siluSlope(x),a=Math.max(-5,x-.9),b=Math.min(5,x+.9);dot.setAttribute('cx',px(x));dot.setAttribute('cy',py(y));tangent.setAttribute('d','M '+px(a)+' '+py(y+derivative*(a-x))+' L '+px(b)+' '+py(y+derivative*(b-x)));slope.textContent='f′(x) = '+derivative.toFixed(3);};
+  const p=document.createElement('p');p.innerHTML='To minimize the loss <span class="inline-math">L</span>, YOLOX-S computes gradients such as <span class="inline-math">dL/dw</span>, which describe how changing a weight <span class="inline-math">w</span> affects the loss <span class="inline-math">L(w)</span>. It then updates weights in the direction that reduces <span class="inline-math">L</span>.';content.append(p);
+  const note=document.createElement('p');note.innerHTML='Because SiLU lies along the path from <span class="inline-math">w</span> to <span class="inline-math">L(w)</span>, the chain rule includes its derivative <span class="inline-math">f′(x)</span> in the gradient. SiLU’s continuous derivative makes this multiplier change smoothly with its input, avoiding abrupt jumps.';content.append(note);
+ }
+ const started=performance.now(),reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+ function frame(now){update(Math.max(0,now-started)/1000);if(!reduced&&siluStep===1)siluAnimationFrame=requestAnimationFrame(frame);}frame(started);
+ if(!siluPopup.hidden){const r=siluPopup.getBoundingClientRect();siluPopup.style.left=Math.max(12,Math.min(r.left,window.innerWidth-siluPopup.offsetWidth-12))+'px';siluPopup.style.top=Math.max(12,Math.min(r.top,window.innerHeight-siluPopup.offsetHeight-12))+'px';}
+}
+document.getElementById('silu-previous').onclick=()=>{siluStep=1-siluStep;showSiLUStep();};
+document.getElementById('silu-next').onclick=()=>{siluStep=1-siluStep;showSiLUStep();};
+</script>
+<script>
+// Popup rendering and animation.
+
+function concatBranches(node){
+ const channels=Number(node.shape.split(' × ')[0]);
+ if(node.concatParts){let start=0;return node.concatParts.map(part=>{const branch={...part,start};start+=part.count;return branch;});}
+ if(node.concatNames)return node.concatNames.map((name,i)=>({name,count:channels/2,start:i*channels/2}));
+ return node.id==='sppcat'?['Unpooled X','5 × 5 pooled X','9 × 9 pooled X','13 × 13 pooled X'].map((name,i)=>({name,count:channels/4,start:i*channels/4})):['Bottleneck branch','Bypass branch'].map((name,i)=>({name,count:channels/2,start:i*channels/2}));
+}
+function buildConcatAnimation(node){
+ cancelAnimationFrame(concatAnimationFrame);
+ const svg=document.getElementById('concat-animation'),ranges=document.getElementById('concat-ranges');svg.replaceChildren();ranges.replaceChildren();
+ document.getElementById('concat-title').textContent=node.title;
+
+ const branches=concatBranches(node);svg.setAttribute('viewBox',branches.length===2?'0 72 500 173':'0 15 500 230');const colors=['#8b80d6','#d59a51','#4b9eaa','#b66d91'],slices=[];
+ const channels=Number(node.shape.split(' × ')[0]),spatial=node.shape.split(' × ').slice(1).join(' × ');
+ document.getElementById('concat-shape').textContent='('+branches.map(b=>b.count).join('+')+') × '+spatial+' → '+node.shape;
+ let displayStart=0;
+ branches.forEach((branch,i)=>{
+  const line=document.createElement('p');line.className='concat-range';const swatch=document.createElement('span');swatch.className='branch-swatch';swatch.style.background=colors[i];const label=document.createElement('span');label.textContent=branch.name+' → '+(branch.count===1?'channel '+branch.start:'channels '+branch.start+'–'+(branch.start+branch.count-1));line.append(swatch,label);ranges.append(line);
+  const x=branches.length===2?75+i*135:40+i*72;
+  for(let j=0;j<Math.min(3,branch.count);j++){
+   const slice=svgElement('g',{});slice.append(svgElement('polygon',{points:'0,0 36,-18 68,0 32,18',fill:colors[i],stroke:'var(--panel)','stroke-width':1}),svgElement('polygon',{points:'0,0 32,18 32,22 0,4',fill:colors[i],style:'filter:brightness(.8)'}),svgElement('polygon',{points:'32,18 68,0 68,4 32,22',fill:colors[i],style:'filter:brightness(.65)'}));
+   // Lower-index channels occupy the base; subsequent branches append above them.
+   slices.push({slice,i,j,sx:x,sy:150-j*15,tx:385,ty:200-(displayStart+j)*13});
+  }
+  displayStart+=Math.min(3,branch.count);
+ });
+ const text=(value,x,y)=>{const t=svgElement('text',{x,y,'text-anchor':'middle'});t.textContent=value;svg.append(t);};
+ text('Separate branches',branches.length===2?175:160,90);text('Concatenated',420,branches.length===2?100:35);text('Representative channel slices',250,235);
+ const started=performance.now(),reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+ function frame(now){const seconds=(Math.max(0,now-started)/1000)%(branches.length*1.1+3);
+  for(const item of slices){const t=reduced?1:Math.max(0,Math.min(1,(seconds-.8-item.i*1.1)/.9)),ease=(1-Math.cos(Math.PI*t))/2;item.slice.style.transform='translate('+(item.sx+(item.tx-item.sx)*ease)+'px,'+(item.sy+(item.ty-item.sy)*ease)+'px)';item.depth=item.sy+(item.ty-item.sy)*ease;}
+  // Draw base channels first, then the slices stacked above them.
+  slices.sort((a,b)=>b.depth-a.depth).forEach(item=>svg.append(item.slice));
+  if(!reduced)concatAnimationFrame=requestAnimationFrame(frame);
+ }
+ frame(started);
+}
+</script>
+<script>
+// Neck overviews share drawing; shapes omit the batch dimension.
+const neckSlides={
+ "topdown": [
+  {
+   "title": "Carry context toward finer grids",
+   "text": "Dark5 captures broad context; dark4 and dark3 preserve progressively finer detail. The top-down path combines them, bringing context into higher-resolution grids.",
+   "overview": [
+    [
+     "dark5",
+     "512 × 20 × 20"
+    ],
+    [
+     "Fuse dark4",
+     "256 × 40 × 40"
+    ],
+    [
+     "Fuse dark3",
+     "128 × 80 × 80"
+    ]
+   ]
+  }
+ ],
+ "bottomup": [
+  {
+   "title": "Carry fine features toward coarser grids",
+   "text": "The bottom-up path carries fine detail back toward coarser grids, enriching the features used for detection at each scale.",
+   "overview": [
+    [
+     "Fine output",
+     "128 × 80 × 80"
+    ],
+    [
+     "Middle output",
+     "256 × 40 × 40"
+    ],
+    [
+     "Coarse output",
+     "512 × 20 × 20"
+    ]
+   ]
+  }
+ ]
+};
+neckSlides.topdown.push({title:'Keep features for the bottom-up path',text:'The top-down path keeps the reduced features before each upsampling step: 256 × 20 × 20 and 128 × 40 × 40.',retention:true});
+neckSlides.bottomup.push({title:'Combine detail with retained context',text:'At each coarser grid, the incoming features are combined with features retained during top-down. This brings fine detail together with the context already gathered at that scale.',fusion:true});
+const neckSlideIndex={topdown:0,bottomup:0};
+function buildTopDownAnimation(){neckSlideIndex.topdown=0;showNeckSlide('topdown');}
+function showNeckSlide(kind){
+ if(kind==='topdown')cancelAnimationFrame(topdownAnimationFrame);else cancelAnimationFrame(bottomupAnimationFrame);
+ const step=neckSlideIndex[kind],slide=neckSlides[kind][step];
+ document.getElementById(kind+'-stage').textContent=(step+1)+' / '+neckSlides[kind].length;
+ document.getElementById(kind+'-title').textContent=slide.title;
+ document.getElementById(kind+'-explanation').textContent=slide.text;
+ const path=document.getElementById(kind+'-path');path.replaceChildren();
+ const sizes=kind==='topdown'?['20 × 20','40 × 40','80 × 80']:['80 × 80','40 × 40','20 × 20'];
+ sizes.forEach((size,i)=>{const item=document.createElement('span');item.textContent=size;item.className=(slide.fusion?i>0:!slide.retention||i<2)?'current':'';if(slide.fusion?i>0:!slide.retention||i<2)item.setAttribute('aria-current','step');path.append(item);if(i<2){const arrow=svgElement('svg',{viewBox:'0 0 40 12','aria-hidden':'true'});arrow.append(svgElement('path',{d:'M 1 6 H 38 M 33 1 L 38 6 L 33 11',fill:'none',stroke:'currentColor'}));path.append(arrow);}});
+ const svg=document.getElementById(kind+'-animation');svg.setAttribute('viewBox',slide.fusion?'0 0 660 340':slide.retention?'0 0 660 330':'0 0 660 165');svg.replaceChildren();svg.setAttribute('aria-label',slide.title+'. '+slide.text);
+ const add=(tag,attrs,parent=svg)=>{const e=svgElement(tag,attrs);parent.append(e);return e;};
+ const label=(value,x,y,parent=svg)=>{const e=add('text',{x,y,'text-anchor':'middle'},parent);e.textContent=value;};
+ const groups=[];
+ const box=(x,y,w,title,shape)=>{const g=add('g',{});groups.push(g);add('rect',{x,y,width:w,height:62,rx:6,fill:'var(--soft)',stroke:'var(--line)'},g);label(title,x+w/2,y+25,g);label(shape,x+w/2,y+46,g);return g;};
+ if(slide.fusion){
+  for(const [i,channels,size] of [[0,128,40],[1,256,20]]){
+   const y=70+i*170;
+   label('Retained during top-down',330,y-47);
+   label(channels+' × '+size+' × '+size,330,y-27);
+   box(10,y,190,'Downsampled features',channels+' × '+size+' × '+size);
+   box(265,y,130,'Concatenate',(channels*2)+' × '+size+' × '+size);
+   box(460,y,190,'CSP · '+(i===0?'middle':'coarse')+' output',(channels*2)+' × '+size+' × '+size);
+   add('path',{d:`M 200 ${y+31} H 265 m -6 -4 l 6 4 -6 4 M 330 ${y-20} V ${y} m -4 -6 l 4 6 4 -6 M 395 ${y+31} H 460 m -6 -4 l 6 4 -6 4`,fill:'none',stroke:'var(--muted)','stroke-width':1.5});
+  }
+ }else if(slide.retention){
+  for(const [i,channels,size] of [[0,256,20],[1,128,40]]){
+   const y=20+i*155,shape=channels+' × '+size+' × '+size;
+   box(15,y,190,'1 × 1 conv, s=1',shape);
+   box(255,y,175,'Upsample ×2',channels+' × '+(size*2)+' × '+(size*2));
+   box(465,y+65,190,'To bottom-up '+size+' × '+size,shape);
+   add('path',{d:`M 205 ${y+31} H 255 m -6 -4 l 6 4 -6 4 M 230 ${y+31} V ${y+96} H 465 m -6 -4 l 6 4 -6 4`,fill:'none',stroke:'var(--muted)','stroke-width':1.5});
+   add('circle',{cx:230,cy:y+31,r:3,fill:'var(--muted)'});
+   label('Retain',345,y+85);
+  }
+ }else if(slide.overview){
+  slide.overview.forEach(([title,shape],i)=>{const x=15+i*225;box(x,78,180,title,shape);if(i<2)add('path',{d:`M ${x+180} 109 h 43 m -6 -4 l 6 4 -6 4`,fill:'none',stroke:'var(--muted)'},svg);});
+ }
+ const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches,started=performance.now();
+ function frame(now){const elapsed=Math.max(0,now-started);groups.forEach((g,i)=>g.setAttribute('opacity',reduced?1:Math.max(.18,Math.min(1,(elapsed-i*650)/450))));if(!reduced&&elapsed<groups.length*650+450){const id=requestAnimationFrame(frame);if(kind==='topdown')topdownAnimationFrame=id;else bottomupAnimationFrame=id;}}
+ frame(started);
+ const popup=document.getElementById(kind+'-popup');
+ if(!popup.hidden){const top=popup.getBoundingClientRect().top;popup.style.top=Math.max(12,Math.min(top,innerHeight-popup.offsetHeight-12))+'px';}
+}
+
+for(const kind of ['topdown','bottomup'])for(const [name,delta] of [['previous',-1],['next',1]])document.getElementById(kind+'-'+name).addEventListener('click',()=>{const count=neckSlides[kind].length;neckSlideIndex[kind]=(neckSlideIndex[kind]+delta+count)%count;showNeckSlide(kind);});
+</script>
+<script>
+// One-channel illustrative example; the real operation repeats every channel.
+function buildUpsampleAnimation(){
+ cancelAnimationFrame(upsampleAnimationFrame);
+ const svg=document.getElementById('upsample-animation');svg.replaceChildren();
+ const add=(tag,attrs,parent=svg)=>{const e=svgElement(tag,attrs);parent.append(e);return e;};
+ const text=(value,x,y,parent=svg)=>{const t=add('text',{x,y,'text-anchor':'middle','dominant-baseline':'middle'},parent);t.textContent=value;return t;};
+ const colors=['#4b9eaa','#d59a51','#8b80d6','#6fa68b'],input=[],output=[];
+ function cell(x,y,size,value,color,parent=svg){
+  const g=add('g',{},parent);add('rect',{x,y,width:size,height:size,rx:1,fill:color,'fill-opacity':.32,stroke:'var(--line)'},g);text(value,x+size/2,y+size/2,g);return g;
+ }
+ for(let i=0;i<4;i++)input.push(cell(35+i%2*44,70+Math.floor(i/2)*44,44,i+1,colors[i]));
+ for(let row=0;row<4;row++)for(let col=0;col<4;col++){
+  const i=Math.floor(row/2)*2+Math.floor(col/2),x=270+col*34,y=46+row*34;
+  add('rect',{x,y,width:34,height:34,fill:'var(--panel)',stroke:'var(--line)'});
+  output.push({i,g:cell(x,y,34,i+1,colors[i])});
+ }
+ text('2 × 2',79,207);text('4 × 4',338,207);
+ add('path',{d:'M 153 114 H 240 m -7 -4 l 7 4 -7 4',fill:'none',stroke:'var(--muted)','stroke-width':1.5});text('×2',196,94);
+ const moving=add('g',{'pointer-events':'none'});
+ const movingRect=add('rect',{x:0,y:0,width:44,height:44,fill:colors[0],'fill-opacity':.5,stroke:'var(--accent)','stroke-width':1.5},moving);
+ const numbers=Array.from({length:4},()=>text('',0,0,moving));
+ const started=performance.now(),reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+ function frame(now){
+  const t=reduced?6:Math.max(0,now-started)/1000%7;
+  const index=Math.min(3,Math.floor(t/1.25)),local=t-index*1.25,p=Math.max(0,Math.min(1,(local-.2)/.8)),ease=(1-Math.cos(Math.PI*p))/2;
+  const done=t>=5;
+  input.forEach((g,i)=>g.setAttribute('opacity',done||i===index?1:.65));
+  output.forEach(({i,g})=>g.setAttribute('opacity',done||i<index||i===index&&p>=1?1:0));
+  moving.setAttribute('opacity',done||p>=1?0:1);
+  const sx=35+index%2*44,sy=70+Math.floor(index/2)*44,tx=270+index%2*68,ty=46+Math.floor(index/2)*68;
+  const x=sx+(tx-sx)*ease,y=sy+(ty-sy)*ease,size=44+24*ease;
+  movingRect.setAttribute('x',x);movingRect.setAttribute('y',y);movingRect.setAttribute('width',size);movingRect.setAttribute('height',size);movingRect.setAttribute('fill',colors[index]);
+  numbers.forEach((n,j)=>{n.textContent=index+1;n.setAttribute('x',x+size*(j%2===0?.25:.75));n.setAttribute('y',y+size*(j<2?.25:.75));n.setAttribute('opacity',ease);});
+  if(!reduced)upsampleAnimationFrame=requestAnimationFrame(frame);
+ }
+ frame(started);
+}
+</script>
+<script>
+function buildSigmoidAnimation(){
+ cancelAnimationFrame(sigmoidAnimationFrame);
+ const svg=document.getElementById('sigmoid-animation');svg.replaceChildren();
+ const add=(tag,attrs)=>{const e=svgElement(tag,attrs);svg.append(e);return e;};
+ const text=(value,x,y,attrs={})=>{const t=add('text',{x,y,'text-anchor':'middle',...attrs});t.textContent=value;return t;};
+ const px=x=>55+(x+7)*28,py=y=>215-y*160;
+ add('path',{d:'M 55 215 H 447 M '+px(0)+' 38 V 225',fill:'none',stroke:'var(--line)'});
+ add('path',{d:'M 55 55 H 447',fill:'none',stroke:'var(--line)','stroke-dasharray':'4 4'});
+ for(const x of [-6,-3,0,3,6])text(x,px(x),238);
+ for(const y of [0,.5,1])text(y,36,py(y)+4);
+ text('logit x',462,259);text('σ(x)',px(0),25);
+ let d='';for(let i=0;i<=280;i++){const x=-7+i*.05;d+=(i?' L ':'M ')+px(x)+' '+py(1/(1+Math.exp(-x)));}
+ add('path',{d,fill:'none',stroke:'var(--accent)','stroke-width':2.5});
+ const guides=add('path',{fill:'none',stroke:'var(--muted)','stroke-dasharray':'3 3'}),dot=add('circle',{r:4,fill:'var(--accent)'}),value=text('',370,25);
+ const start=performance.now(),reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+ function frame(now){
+  const seconds=Math.max(0,now-start)/1000,x=reduced?0:-6*Math.cos(seconds*Math.PI/5),y=1/(1+Math.exp(-x));
+  dot.setAttribute('cx',px(x));dot.setAttribute('cy',py(y));guides.setAttribute('d','M '+px(x)+' 215 V '+py(y)+' H 55');value.textContent='x = '+x.toFixed(2)+' → '+y.toFixed(3);
+  if(!reduced)sigmoidAnimationFrame=requestAnimationFrame(frame);
+ }
+ frame(start);
+}
+</script>
+<script>
+function buildBottomUpAnimation(){neckSlideIndex.bottomup=0;showNeckSlide('bottomup');}
+</script>
+<script>
+// General neck explanation, independent of the detailed path popups.
+function showNeckExample(){
+ const content=document.getElementById('neck-content');content.replaceChildren();
+ const intro=document.createElement('p');intro.textContent='The neck combines the backbone’s three feature grids, so detection at each scale can use both spatial detail and broader context.';content.append(intro);
+ for(const [title,text] of [
+  ['Three complementary views','The 80 × 80 grid preserves finer spatial detail, the 20 × 20 grid captures broader context, and the 40 × 40 grid provides an intermediate view. These grids contain learned features, not miniature pictures.'],
+  ['Top-down · context helps interpret detail','The top-down path brings broader context into the finer grids. For example, local features might capture a small silhouette; broader information can help interpret those patterns as part of a person.'],
+  ['Bottom-up · fine detail enriches coarser features','The bottom-up path then combines these enriched fine features with coarser features. This lets detection at coarser scales also benefit from fine spatial detail.']
+ ]){
+  const heading=document.createElement('h3');heading.textContent=title;const p=document.createElement('p');p.textContent=text;content.append(heading,p);
+ }
+}
+</script>
+<script>
+function nmsExampleIoU(a,b){
+ const intersection=Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x))*Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));
+ return intersection/(a.w*a.h+b.w*b.h-intersection);
+}
+function buildNMSComparison(content){
+ const boxes=[{name:'A',className:'cat',score:.90,x:55,y:35,w:185,h:125},{name:'B',className:'cat',score:.75,x:65,y:45,w:185,h:125},{name:'C',className:'dog',score:.60,x:75,y:55,w:185,h:125}],threshold=.5;
+ let step=0;
+ const controls=document.createElement('div');controls.className='nms-controls';
+ const previous=document.createElement('button'),counter=document.createElement('span'),next=document.createElement('button');
+ previous.type=next.type='button';previous.textContent='‹';next.textContent='›';previous.setAttribute('aria-label','Previous NMS step');next.setAttribute('aria-label','Next NMS step');controls.append(previous,counter,next);content.append(controls);
+ const note=document.createElement('p');note.textContent='Same candidates · confidence scores shown · IoU threshold '+threshold.toFixed(2);content.append(note);
+ const columns=document.createElement('div');columns.className='nms-columns';content.append(columns);
+ const panels=[false,true].map(agnostic=>{
+  const panel=document.createElement('section');panel.className='nms-panel';panel.dataset.mode=agnostic?'agnostic':'per-class';
+  const heading=document.createElement('h3');heading.textContent=agnostic?'Class-agnostic NMS':'Per-class NMS';panel.append(heading);
+  const svg=svgElement('svg',{viewBox:'0 0 340 215',role:'img','aria-label':'Three overlapping predictions: A cat 0.90, B cat 0.75, C dog 0.60.'});panel.append(svg);
+  const shapes=boxes.map((box,i)=>{
+   const g=svgElement('g',{class:'nms-box'}),color=i===2?'#ad78c2':'var(--accent)';
+   g.append(svgElement('rect',{x:box.x,y:box.y,width:box.w,height:box.h,rx:2,fill:'none',stroke:color,'stroke-width':2,...(i===1?{'stroke-dasharray':'6 4'}:{})}));
+   const label=svgElement('text',{x:box.x+6,y:box.y+16});label.textContent=box.name;g.append(label);svg.append(g);return g;
+  });
+  const legend=document.createElement('div');legend.className='nms-legend';boxes.forEach(box=>{const label=document.createElement('span');label.textContent=box.name+' · '+box.className+' · '+box.score.toFixed(2);legend.append(label);});panel.append(legend);
+  const status=document.createElement('p');status.className='nms-status';status.setAttribute('aria-live','polite');panel.append(status);columns.append(panel);
+  return {agnostic,shapes,status,panel};
+ });
+ function update(){
+  counter.textContent=(step+1)+' / 4';
+  for(const {agnostic,shapes,status,panel} of panels){
+   shapes.forEach((g,i)=>{const suppressed=i===1&&step>=2||i===2&&step>=3&&agnostic;g.style.opacity=suppressed?'.12':'1';g.querySelector('rect').setAttribute('stroke-width',i===0&&step>=1||i===2&&step===3&&!agnostic?3.5:2);});
+   const overlapB=nmsExampleIoU(boxes[0],boxes[1]).toFixed(2),overlapC=nmsExampleIoU(boxes[0],boxes[2]).toFixed(2);
+   if(step===0)status.textContent='All three candidates have already passed confidence thresholding.';
+   if(step===1)status.textContent='Keep A: it has the highest confidence, 0.90.';
+   if(step===2)status.textContent='Suppress B: same class as A; IoU(A, B) = '+overlapB+' > '+threshold.toFixed(2)+'.';
+   if(step===3)status.textContent=agnostic?'Suppress C: classes are ignored; IoU(A, C) = '+overlapC+' > '+threshold.toFixed(2)+'. Result: keep A.':'Keep C: dog and cat are different classes, so A cannot suppress C—even though IoU(A, C) = '+overlapC+'. Result: keep A and C.';
+   panel.dataset.step=step;panel.dataset.kept=step===3?(agnostic?'A':'A,C'):'';
+  }
+ }
+ previous.onclick=()=>{step=(step+3)%4;update();};next.onclick=()=>{step=(step+1)%4;update();};update();
+}
+</script>
+<script>
+// Diagram rendering, edge routing, camera navigation, and startup.
+
+function arrow(){let e=document.createElement('span');e.className='arrow';e.textContent='';e.setAttribute('aria-hidden','true');return e;}
+function flow(nodes){let el=document.createElement('div');el.className='flow';nodes.forEach((x,i)=>{if(i)el.append(arrow());el.append(renderNode(x));});return el;}
+function renderNode(x){if(x.id==='unpooled'){const anchor=document.createElement('div');anchor.className='node passthrough-anchor';anchor.dataset.id=x.id;return anchor;}if(x.title==='Identity'){const anchor=document.createElement('div');anchor.className='node shortcut-anchor';anchor.dataset.id=x.id;return anchor;}const inline=/^head(?:80|40|20)branches$/.test(x.id)||/^csp(?:\d+|neck(?:bottom)?\d+)branches$/.test(x.id);let el=document.createElement('div');el.className='node'+(opened.has(x.id)||inline?' open':'')+(inline?' inline-branches':'')+(selected===x.id?' selected':'');el.dataset.id=x.id;let b=document.createElement('div');b.className='label';const selectButton=document.createElement('button');selectButton.type='button';selectButton.className='box-select';selectButton.setAttribute('aria-label','Select '+x.title);selectButton.onclick=()=>activate(x);if(x.taper){el.classList.add('taper-'+x.taper);const frame=svgElement('svg',{class:'taper-frame',viewBox:'0 0 100 100',preserveAspectRatio:'none','aria-hidden':'true'});frame.append(svgElement('polygon',{points:x.taper==='widen'?'0,25 100,0 100,100 0,75':'0,0 100,25 100,75 0,100','vector-effect':'non-scaling-stroke'}));b.append(frame);}let title=document.createElement('strong');title.textContent=x.title;if(x.convolution){const {cout,k,s}=x.convolution;title.textContent=cout+'×Conv('+k+'×'+k+', s='+s+')';if(x.children)title.append(document.createTextNode(' → BN → SiLU'));}if(x.id==='backbone'){const subtitle=document.createElement('span');subtitle.className='backbone-subtitle';subtitle.textContent='CSPDarknet';title.append(subtitle);}let shape=document.createElement('small');shape.textContent=x.id==='backbone'?'':x.shape;let action=document.createElement(x.children?'button':'span');action.className='action';action.textContent=x.children?(opened.has(x.id)?'− Collapse':'+ Expand'):'';if(x.children){action.type='button';action.setAttribute('aria-expanded',opened.has(x.id));action.setAttribute('aria-label',(opened.has(x.id)?'Collapse ':'Expand ')+x.title);action.onclick=e=>{e.stopPropagation();activate(x,true);};}b.append(selectButton,title,action);if(x.filterHelp)attachPopup(b,filterInfoPopup,x);if(x.title==='Sigmoid')attachPopup(b,sigmoidPopup);if(x.id==='filter')attachPopup(b,filterOverviewPopup);if(x.id==='output')attachPopup(b,outputPopup);if(x.id==='heads')attachPopup(b,headsPopup);if(x.id==='backbone')attachPopup(b,backbonePopup);if(x.id==='neck')attachPopup(b,neckPopup);if(x.id==='neckbottomup')attachPopup(b,bottomupPopup);if(x.title==='Upsample ×2')attachPopup(b,upsamplePopup);if(x.id==='necktopdown')attachPopup(b,topdownPopup);if(x.id==='input')attachPopup(b,inputPopup);if(x.id==='rearrange')attachPopup(b,focusPopup);if(x.convolution&&!x.children)attachPopup(b,convPopup,x.convolution);if(x.title==='Batch normalization')attachPopup(b,bnPopup);if(x.title==='SiLU')attachPopup(b,siluPopup);if(x.pooling)attachPopup(b,maxpoolPopup,x.pooling);if(x.title==='Elementwise add')attachPopup(b,addPopup);if(x.title==='Concatenate'||x.predictionAssembly)attachPopup(b,concatPopup,x);if(!inline){el.append(b);if(b.popupInfo)el.append(b.popupInfo);}if((opened.has(x.id)||inline)&&x.children){if(x.parallel){let p=document.createElement('div');p.className='parallel';p.append(arrow());let lanes=document.createElement('div');lanes.className='lanes';x.children.forEach(l=>{let lane=document.createElement('div');lane.className='lane';let name=document.createElement('span');name.className='lane-name';name.textContent=l.name;if(l.name&&!inline&&x.title!=='Residual paths'&&x.id!=='pools')lane.append(name);lane.append(flow(l.nodes));lanes.append(lane);});p.append(lanes,arrow());el.append(p);}else el.append(flow(x.children));}if(/^head(?:80|40|20)(?:reg|predictions)$/.test(x.id)&&!opened.has(x.id)){for(const [i,channels] of [4,1].entries()){const port=document.createElement('span');port.className='head-output-port';const size=x.id.match(/^head(80|40|20)/)[1];port.dataset.shape=channels+' × '+size+' × '+size;port.style.top=(i===0?'30%':'75%');el.append(port);}}if(x.tap){let t=document.createElement('span');t.className='tap';t.textContent=x.tap;el.append(t);}el.addEventListener('click',e=>{if(e.target.closest('.node')!==el||e.target.closest('button'))return;e.stopPropagation();activate(x);});return el;}
+function render(){hideInputPopup();canvas.replaceChildren(flow(pipeline));drawConnections();updateDetails();}
+function updateDetails(){details.replaceChildren();let x=index.get(selected);let h=document.createElement('h2');h.textContent=x?x.title:'Explore the architecture';details.append(h);if(x){let meta=document.createElement('div');meta.className='meta';meta.textContent='Output: '+x.shape+' · batch dimension B omitted in diagram';details.append(meta);}let p=document.createElement('p');p.textContent=x?x.info:'Open Backbone to reveal Focus → dark2 → dark3 → dark4 → dark5. Open any nested block to continue exploring.';details.append(p);}
+function activate(x,toggle=false){selected=x.id;if(toggle&&x.children){if(opened.has(x.id))opened.delete(x.id);else opened.add(x.id);render();}else{hideInputPopup();canvas.querySelectorAll('.node').forEach(node=>node.classList.toggle('selected',node.dataset.id===selected));updateDetails();}canvas.querySelector('[data-id="'+x.id+'"] > .label > '+(toggle?'.action':'.box-select'))?.focus({preventScroll:true});}
+let panX=40,panY=52;
+function updateCamera(){canvas.style.transform='none';canvas.style.zoom=scale;canvas.style.left=(panX/scale)+'px';canvas.style.top=(panY/scale)+'px';drawConnections();}
+function zoomTo(next,x,y){next=Math.max(.001,Math.min(3,next));const ratio=next/scale;panX=x-(x-panX)*ratio;panY=y-(y-panY)*ratio;scale=next;updateCamera();}
+viewport.addEventListener('wheel',e=>{e.preventDefault();const r=viewport.getBoundingClientRect();const delta=e.deltaY*(e.deltaMode===1?16:e.deltaMode===2?viewport.clientHeight:1);zoomTo(scale*Math.exp(-delta*.002),e.clientX-r.left,e.clientY-r.top);},{passive:false});
+const pointers=new Map();let gesture=null,suppressClick=false;
+function gestureState(){const points=[...pointers.values()];if(points.length>1){const [a,b]=points;return {x:(a.x+b.x)/2,y:(a.y+b.y)/2,d:Math.hypot(a.x-b.x,a.y-b.y)};}return points.length?{...points[0],d:0}:null;}
+viewport.addEventListener('pointerdown',e=>{if(e.button!==0)return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});gesture=gestureState();if(pointers.size===1)suppressClick=false;else suppressClick=true;});
+viewport.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});const next=gestureState();if(!gesture)return;const dx=next.x-gesture.x,dy=next.y-gesture.y;if(!suppressClick&&Math.hypot(dx,dy)<5)return;suppressClick=true;viewport.classList.add('dragging');if(!viewport.hasPointerCapture(e.pointerId))viewport.setPointerCapture(e.pointerId);panX+=dx;panY+=dy;updateCamera();gesture=next;});
+function releasePointer(e){pointers.delete(e.pointerId);gesture=gestureState();if(!pointers.size)viewport.classList.remove('dragging');}
+viewport.addEventListener('pointerup',releasePointer);viewport.addEventListener('pointercancel',releasePointer);viewport.addEventListener('lostpointercapture',releasePointer);
+window.addEventListener('pointerup',releasePointer);window.addEventListener('pointercancel',releasePointer);
+viewport.addEventListener('click',e=>{if(suppressClick&&e.detail!==0){e.preventDefault();e.stopImmediatePropagation();}},{capture:true});
+viewport.addEventListener('dragstart',e=>e.preventDefault());
+viewport.addEventListener('click',e=>{if(e.target.closest('.label,.popup-info')||suppressClick)return;selected=null;canvas.querySelectorAll('.node.selected').forEach(node=>node.classList.remove('selected'));if(document.activeElement?.closest('#canvas'))document.activeElement.blur();});
+
+function drawConnections(){
+ canvas.querySelector('.connections')?.remove();
+ const svg=svgElement('svg',{class:'connections','aria-label':'Feature flow connections',role:'img'});
+ const defs=svgElement('defs',{});
+ for(const [id,color] of [['flow-tip','var(--muted)'],['neck-tip','var(--muted)']]){const marker=svgElement('marker',{id,viewBox:'0 0 8 8',refX:8,refY:4,markerWidth:8,markerHeight:8,orient:'auto',markerUnits:'userSpaceOnUse'});marker.append(svgElement('polygon',{points:'0,0 8,4 0,8',fill:color}));defs.append(marker);}svg.append(defs);
+ const origin=canvas.getBoundingClientRect();
+ function box(e){const r=e.getBoundingClientRect();return {l:(r.left-origin.left)/scale,r:(r.right-origin.left)/scale,t:(r.top-origin.top)/scale,b:(r.bottom-origin.top)/scale,w:r.width/scale,h:r.height/scale};}
+ function edge(d,neck=false,head=true){svg.append(svgElement('path',{d,class:neck?'neck-edge':'flow-edge','marker-end':head?(neck?'url(#neck-tip)':'url(#flow-tip)'):'none'}));}
+ // Expanded groups expose their visible operations as connection ports.
+ function ports(node,side){
+  if(!node.classList.contains('open')){const outputs=node.querySelectorAll(':scope > .head-output-port');return side==='out'&&outputs.length?[...outputs]:[node];}
+  const row=[...node.children].find(e=>e.classList.contains('flow'));
+  if(row){const nodes=[...row.children].filter(e=>e.classList.contains('node'));return ports(side==='in'?nodes[0]:nodes[nodes.length-1],side);}
+  const parallel=[...node.children].find(e=>e.classList.contains('parallel'));
+  if(parallel){return [...parallel.querySelector('.lanes').children].flatMap(lane=>{const nodes=[...lane.querySelector('.flow').children].filter(e=>e.classList.contains('node'));if(side==='in'&&nodes[0].classList.contains('shortcut-anchor'))return [];return ports(side==='in'?nodes[0]:nodes[nodes.length-1],side);});}
+  return [node];
+ }
+ // Only dark5 enters the reduction; the other scales feed later fusion.
+ function routeNeckInput(sourceNode,neckNode,d){
+  const expanded=opened.has('neck');
+  const targetNode=expanded?(d===5?ports(neckNode,'in')[0]:(opened.has('necktopdown')?canvas.querySelector('[data-id="neckcat'+(d===3?'80':'40')+'"]'):canvas.querySelector('[data-id="necktopdown"]'))):neckNode;
+  const source=box(sourceNode),target=box(targetNode),shape=index.get('dark'+d).shape;
+  if(d===5){const y=source.t+source.h/2;edge('M '+source.r+' '+y+' H '+target.l,true);labelShape(shape,(source.r+target.l)/2,y);return;}
+  const backbone=box(canvas.querySelector('[data-id="backbone"]')),neck=box(neckNode);
+  const above=d===3,sx=source.l+source.w*.65,tx=target.l+target.w*.5;
+  if(expanded&&!opened.has('backbone')&&!opened.has('necktopdown')&&!opened.has('neckbottomup')){
+   const cy=source.t+source.h/2,clearance=Math.max(source.h,target.h)/2+25,y=cy+(above?-clearance:clearance);
+   const from=above?source.t:source.b,to=above?target.t+target.h*.125:target.b-target.h*.125;
+   edge('M '+sx+' '+from+' V '+y+' H '+tx+' V '+to,true);labelShape(shape,(sx+tx)/2,y);return;
+  }
+
+  const stage=opened.has('backbone')?box(canvas.querySelector('[data-id="dark'+d+'"]')):null;
+  const topDown=expanded?box(canvas.querySelector('[data-id="necktopdown"]')):neck;
+  const sourceBounds=stage||source;
+  let y=expanded?(above?Math.min(sourceBounds.t,topDown.t)-105:Math.max(sourceBounds.b,topDown.b)+45):(above?Math.min(backbone.t,neck.t)-35:Math.max(backbone.b,neck.b)+35);
+  if(expanded&&opened.has('backbone')){if(above)y=Math.min(y,backbone.t-35);else if(Math.abs(y-backbone.b)<24)y=backbone.b+35;}
+  const from=above?source.t:source.b;
+  const tapered=expanded&&!opened.has('necktopdown');
+  const to=above?target.t+(tapered?target.h*.125:0):target.b-(tapered?target.h*.125:0);
+  if(stage){const rail=stage.r+35,sy=source.t+source.h/2;edge('M '+source.r+' '+sy+' H '+rail+' V '+y+' H '+tx+' V '+to,true);labelShape(shape,(rail+tx)/2,y);}
+  else{edge('M '+sx+' '+from+' V '+y+' H '+tx+' V '+to,true);labelShape(shape,(sx+tx)/2,y);}
+ }
+ function tensorShape(node){const value=node.dataset.shape||index.get(node.dataset.id)?.shape;return /^\d+ × \d+ × \d+$/.test(value||'')?value:(index.get(node.dataset.id)?.filterHelp?value:null);}
+ function labelShape(shape,x,y){if(!shape)return;const lines=Array.isArray(shape)?shape:[shape];lines.forEach((line,i)=>{const labelY=y-10-(lines.length-1-i)*17;const text=svgElement('text',{x,y:labelY,'text-anchor':'middle'});text.textContent=line;text.dataset.edgeY=y;svg.append(text);});}
+ function link(a,b,showShape=true){
+ if(a.dataset.id==='heads'&&b.dataset.id==='filter'){
+  const targetNode=ports(b,'in')[0],target=box(targetNode),group=box(a),outputs=opened.has('heads')?ports(a,'out'):null;
+  if(!opened.has('heads')){for(let i=0;i<3;i++){const y=group.t+group.h*(i+1)/4;edge('M '+group.r+' '+y+' H '+target.l);labelShape('85 × '+[80,40,20][i]+' × '+[80,40,20][i],(group.r+target.l)/2,y);}return;}
+
+  for(let i=0;i<3;i++){
+   const source=outputs?box(outputs[i]):group,sy=outputs?source.t+source.h/2:group.t+group.h*(i+1)/4;
+   const shape=outputs?tensorShape(outputs[i]):'85 × '+[80,40,20][i]+' × '+[80,40,20][i];
+   if(i===1){edge('M '+source.r+' '+sy+' H '+target.l);labelShape(shape,(source.r+target.l)/2,sy);continue;}
+   const above=i===0,tx=target.l+target.w*.5,ty=above?target.t:target.b;
+   if(above?sy<ty-25:sy>ty+25){edge('M '+source.r+' '+sy+' H '+tx+' V '+ty);labelShape(shape,(source.r+tx)/2,sy);}
+   else{const rail=group.r+35,y=above?Math.min(sy,target.t)-35:Math.max(sy,target.b)+35;edge('M '+source.r+' '+sy+' H '+rail+' V '+y+' H '+tx+' V '+ty);labelShape(shape,(rail+tx)/2,y);}
+  }return;
+ }
+ if(/^head(?:80|40|20)branches$/.test(a.dataset.id)&&b.dataset.id===a.dataset.id.replace('branches','pack')){
+  const target=box(b);for(const output of ports(a,'out')){const source=box(output),y=source.t+source.h/2;edge('M '+source.r+' '+y+' H '+target.l);labelShape(tensorShape(output),(source.r+target.l)/2,y);}return;
+ }
+ if(a.dataset.id==='neck'&&b.dataset.id==='heads'&&opened.has('heads')){
+  const firstHead=canvas.querySelector('[data-id="head80"]'),fineTarget=box(ports(firstHead,'in')[0]);
+  const neck=box(a),heads=box(b),neckExpanded=opened.has('neck'),bottomNode=canvas.querySelector('[data-id="neckbottomup"]');
+  if(neckExpanded&&!opened.has('neckbottomup')){
+   const bottom=box(bottomNode),cy=bottom.t+bottom.h/2,sx=bottom.l+bottom.w*.65;
+   const targets=[80,40,20].map(size=>box(ports(canvas.querySelector('[data-id="head'+size+'"]'),'in')[0]));
+   const plain=[80,40,20].every(size=>!opened.has('head'+size));
+   const reach=bottom.h/2+45;
+   for(let i=0;i<3;i++){
+    const target=targets[i],ty=target.t+target.h/2,shape=[128,256,512][i]+' × '+[80,40,20][i]+' × '+[80,40,20][i];
+    if(i===1){edge('M '+bottom.r+' '+cy+' H '+target.l);labelShape(shape,(bottom.r+target.l)/2,cy);continue;}
+    const sign=i===0?-1:1,sy=cy+sign*bottom.h*(.5-.25*.65),y=plain?ty:cy+sign*reach;
+    if(plain){edge('M '+sx+' '+sy+' V '+y+' H '+target.l);labelShape(shape,(sx+target.l)/2,y);}
+    else{const rail=heads.l-35;edge('M '+sx+' '+sy+' V '+y+' H '+rail+' V '+ty+' H '+target.l);labelShape(shape,(sx+rail)/2,y);labelShape(shape,(rail+target.l)/2,ty);}
+   }return;
+  }
+
+  for(const [id,targetId,shape,slot] of [['cspneck80','head80','128 × 80 × 80',0],['cspneckbottom40','head40','256 × 40 × 40',1],['cspneckbottom20','head20','512 × 20 × 20',2]]){
+   const target=slot===0?fineTarget:box(ports(canvas.querySelector('[data-id="'+targetId+'"]'),'in')[0]);
+   const bottom=neckExpanded?box(bottomNode):neck;
+   if(slot===0&&neckExpanded&&opened.has('neckbottomup')){
+    const first=box(ports(bottomNode,'in')[0]),row=box(bottomNode.querySelector(':scope > .flow')),sx=first.l-30,sy=first.t+first.h/2,y=row.t+22,rail=target.l-140,ty=target.t+target.h/2;
+    edge('M '+sx+' '+sy+' V '+y+' H '+rail+' V '+ty+' H '+target.l);labelShape(shape,(sx+bottom.r)/2,y);labelShape(shape,(rail+target.l)/2,ty);continue;
+   }
+   const visible=neckExpanded&&slot!==0?canvas.querySelector('[data-id="'+id+'"]'):null,source=visible?box(ports(visible,'out')[0]):bottom;
+   const sy=visible?source.t+source.h/2:source.t+source.h*(neckExpanded?(slot===0?.25:.5):(slot+1)/4),ty=target.t+target.h/2,rail=heads.l-115;
+   if(slot===1&&visible){
+    const group=box(canvas.querySelector('[data-id="'+id+'"]')),exit=group.r+35,y=bottom.b+45;
+    edge('M '+source.r+' '+sy+' H '+exit+' V '+y+' H '+rail+' V '+ty+' H '+target.l);labelShape(shape,(exit+rail)/2,y);labelShape(shape,(rail+target.l)/2,ty);
+   }else{edge('M '+source.r+' '+sy+' H '+rail+' V '+ty+' H '+target.l);labelShape(shape,(rail+target.l)/2,ty);}
+  }
+  return;
+ }
+
+ if(a.dataset.id==='neck'&&b.dataset.id==='heads'){
+  const target=box(b);
+  if(!opened.has('neck')){const source=box(a);for(const [i,shape] of ['128 × 80 × 80','256 × 40 × 40','512 × 20 × 20'].entries()){const y=source.t+source.h*(i+1)/4;edge('M '+source.r+' '+y+' H '+target.l);labelShape(shape,(source.r+target.l)/2,y);}return;}
+  const topNode=canvas.querySelector('[data-id="necktopdown"]'),bottomNode=canvas.querySelector('[data-id="neckbottomup"]'),top=box(topNode),bottom=box(bottomNode);
+  if(!opened.has('necktopdown')&&!opened.has('neckbottomup')){
+   const cy=bottom.t+bottom.h/2,clearance=Math.max(bottom.h,target.h)/2+25,sx=bottom.l+bottom.w*.8,tx=target.l+target.w*.5;
+   for(const [shape,sign] of [['128 × 80 × 80',-1],['256 × 40 × 40',1]]){
+    const y=cy+sign*clearance,sy=cy+sign*bottom.h*.3,ty=sign<0?target.t:target.b;
+    edge('M '+sx+' '+sy+' V '+y+' H '+tx+' V '+ty);labelShape(shape,(sx+tx)/2,y);
+   }
+   edge('M '+bottom.r+' '+cy+' H '+target.l);labelShape('512 × 20 × 20',(bottom.r+target.l)/2,cy);return;
+  }
+  for(const [id,group,side] of [['cspneck80',bottomNode,'top'],['cspneckbottom40',bottomNode,'bottom'],['cspneckbottom20',bottomNode,'straight']]){
+   const visible=side==='top'?null:canvas.querySelector('[data-id="'+id+'"]'),source=box(ports(visible||group,'out')[0]),shape=index.get(id).shape;
+   if(side==='top'){
+    const tx=target.l+target.w*.5;
+    if(opened.has('neckbottomup')){
+     const first=box(ports(bottomNode,'in')[0]),row=box(bottomNode.querySelector(':scope > .flow'));
+     const sx=first.l-30,sy=first.t+first.h/2,y=row.t+22;
+     edge('M '+sx+' '+sy+' V '+y+' H '+tx+' V '+target.t);
+     labelShape(shape,(sx+bottom.r)/2,y);
+     labelShape(shape,(bottom.r+tx)/2,y);
+    }else{
+     const sx=bottom.l+bottom.w*.8,sy=bottom.t+bottom.h*.2;
+     const y=Math.min(bottom.t,target.t)-45;
+     edge('M '+sx+' '+sy+' V '+y+' H '+tx+' V '+target.t);
+     labelShape(shape,(sx+tx)/2,y);
+    }
+    continue;
+   }
+   if(side==='straight'){const y=source.t+source.h/2;edge('M '+source.r+' '+y+' H '+target.l);labelShape(shape,(source.r+target.l)/2,y);continue;}
+   const above=side==='top',sx=source.l+source.w*.8,tx=target.l+target.w*(above?.35:.65),tapered=!visible;
+   const sy=above?source.t+(tapered?source.h*.05:0):source.b-(tapered?source.h*.2:0);
+   const y=above?Math.min(top.t,bottom.t,target.t)-75:Math.max(top.b,bottom.b,target.b)+75;
+   edge('M '+sx+' '+sy+' V '+y+' H '+tx+' V '+(above?target.t:target.b));labelShape(shape,(sx+tx)/2,y);
+  }
+  return;
+ }
+
+ if(a.dataset.id==='necktopdown'&&b.dataset.id==='neckbottomup'&&!opened.has('necktopdown')&&!opened.has('neckbottomup')){
+  const source=box(a),target=box(b);
+  for(const [id,fraction] of [['neckreduce',.25],['cspneck80',.5],['neckreduce40',.75]]){
+   const y=source.t+source.h*fraction;
+   edge('M '+source.r+' '+y+' H '+target.l);
+   labelShape(index.get(id).shape,(source.r+target.l)/2,y);
+  }
+  return;
+ }
+
+ if(a.dataset.id==='pools'&&b.dataset.id==='sppcat'&&a.classList.contains('open')){
+  const target=box(b);for(const output of ports(a,'out')){const source=box(output),y=source.t+source.h/2;edge('M '+source.r+' '+y+' H '+target.l);labelShape(tensorShape(output),(source.r+target.l)/2,y);}return;
+ }
+ if(a.dataset.id==='pools'&&b.dataset.id==='sppcat'&&!a.classList.contains('open')){
+  const source=box(a),target=box(b),shape='256 × 20 × 20',mid=(source.r+target.l)/2;
+  for(const fraction of [.125,.375,.625,.875]){const y=source.t+source.h*fraction;edge('M '+source.r+' '+y+' H '+target.l);labelShape(shape,mid,y);}return;
+ }
+ if(index.get(a.dataset.id)?.title==='Residual paths'&&index.get(b.dataset.id)?.title==='Elementwise add'){
+  const target=box(b);
+  if(a.classList.contains('open')){for(const node of ports(a,'out')){const source=box(node),y=source.t+source.h/2;edge('M '+source.r+' '+y+' H '+target.l);labelShape(tensorShape(node),(source.r+target.l)/2,y);}}
+  else{const source=box(a);for(const fraction of [.28,.72]){const y=source.t+source.h*fraction;edge('M '+source.r+' '+y+' H '+target.l);labelShape(tensorShape(a),(source.r+target.l)/2,y);}}
+  return;
+ }
+ if(a.dataset.id==='backbone'&&b.dataset.id==='neck'&&!opened.has('backbone')){
+  const source=box(a);
+  if(!opened.has('neck')){const target=box(b);for(const [i,stage] of stages.slice(2).entries()){const y=source.t+source.h*(i+1)/4;edge('M '+source.r+' '+y+' H '+target.l,true);labelShape(stage.shape,(source.r+target.l)/2,y);}return;}
+  for(const d of [3,4,5])routeNeckInput(a,b,d);return;
+ }
+ const sources=ports(a,'out'),targets=ports(b,'in');
+ if(targets.length>1){
+  const from=sources[0],source=box(from),sy=source.t+source.h/2,rail=Math.min(...targets.map(node=>box(node).l))-140;
+  edge('M '+source.r+' '+sy+' H '+rail,false,false);
+  const ys=targets.map(node=>{const r=box(node);return r.t+r.h/2;});edge('M '+rail+' '+Math.min(sy,...ys)+' V '+Math.max(sy,...ys),false,false);
+  targets.forEach((node,i)=>{const target=box(node);edge('M '+rail+' '+ys[i]+' H '+target.l,false,!node.classList.contains('passthrough-anchor'));labelShape(tensorShape(from),(rail+target.l)/2,ys[i]);});return;
+ }
+ if(sources.length>1){
+  const target=box(targets[0]);
+  sources.forEach((node,i)=>{const source=box(node),sy=source.t+source.h/2;
+   if(i===0){const ty=target.t+target.h/2;edge('M '+source.r+' '+sy+' H '+target.l);labelShape(tensorShape(node),(source.r+target.l)/2,ty);}
+   else{const tx=target.l+target.w*i/sources.length;edge('M '+source.r+' '+sy+' H '+tx+' V '+target.b);labelShape(tensorShape(node),(source.r+tx)/2,sy);}
+  });return;
+ }
+ const from=sources[0],to=targets[0],x=box(from),y=box(to),sy=x.t+x.h/2,ty=y.t+y.h/2,m=(x.r+y.l)/2;
+ if(Math.abs(sy-ty)<.5){edge('M '+x.r+' '+sy+' H '+y.l);if(showShape)labelShape(tensorShape(from),m,sy);}
+ else{edge('M '+x.r+' '+sy+' H '+m+' V '+ty+' H '+y.l);if(showShape)labelShape(tensorShape(from),(x.r+m)/2,sy);}
+ }
+ // Align actual visible input/output ports rather than the centers of group frames.
+ const rows=[...canvas.querySelectorAll('.flow')];
+ for(const row of rows){row.style.alignItems='flex-start';for(const node of [...row.children].filter(e=>e.classList.contains('node'))){node.style.marginTop='0px';node.style.transform='';}}
+ // Finalize the filter input height before aligning its internal row.
+ if(!opened.has('heads')){
+  const filter=canvas.querySelector('[data-id="filter"]'),heads=canvas.querySelector('[data-id="heads"]');
+  ports(filter,'in')[0].querySelector('.label').style.minHeight=box(heads).h+'px';
+ }
+ for(const row of rows.reverse()){
+  const nodes=[...row.children].filter(e=>e.classList.contains('node'));if(!nodes.length)continue;
+  for(let i=1;i<nodes.length;i++){const node=nodes[i],previous=nodes[i-1];if(index.get(node.dataset.id)?.title==='Elementwise add'&&index.get(previous.dataset.id)?.title==='Residual paths'&&previous.classList.contains('open')){const outputs=ports(previous,'out').map(box),ys=outputs.map(r=>r.t+r.h/2);node.querySelector('.label').style.minHeight=(Math.max(...ys)-Math.min(...ys)+100)+'px';node.dataset.inputOffset='50';}}
+  for(let i=1;i<nodes.length;i++){const node=nodes[i],previous=nodes[i-1];if(node.dataset.id==='sppcat'&&previous.dataset.id==='pools'&&previous.classList.contains('open')){const ys=ports(previous,'out').map(output=>{const r=box(output);return r.t+r.h/2;});node.querySelector('.label').style.minHeight=(Math.max(...ys)-Math.min(...ys)+48)+'px';node.dataset.inputOffset='24';}}
+  for(let i=1;i<nodes.length;i++){const node=nodes[i],previous=nodes[i-1];if(/^head(?:80|40|20)pack$/.test(node.dataset.id)){const ys=ports(previous,'out').map(output=>{const r=box(output);return r.t+r.h/2;});node.querySelector('.label').style.minHeight=(Math.max(...ys)-Math.min(...ys)+100)+'px';node.dataset.inputOffset='50';}}
+  const offsets=[0];
+  const portOffset=(node,side)=>{if(node.dataset.id==='heads'&&opened.has('heads')){const middle=box(ports(canvas.querySelector('[data-id="head40"]'),side)[0]),n=box(node);return middle.t+middle.h/2-n.t;}if(side==='in'&&node.dataset.inputOffset)return Number(node.dataset.inputOffset);const p=box(ports(node,side)[0]),n=box(node);return p.t+p.h/2-n.t;};
+  for(let i=1;i<nodes.length;i++)offsets[i]=offsets[i-1]+portOffset(nodes[i-1],'out')-portOffset(nodes[i],'in');
+  const minimum=Math.min(...offsets);nodes.forEach((node,i)=>node.style.marginTop=(offsets[i]-minimum)+'px');
+ }
+ for(const anchor of canvas.querySelectorAll('.shortcut-anchor')){const lanes=anchor.closest('.lanes'),first=lanes.children[0].querySelector('.node'),input=box(ports(first,'in')[0]),shortcut=box(anchor),sx=input.l-80,sy=input.t+input.h/2;edge('M '+sx+' '+sy+' V '+(shortcut.t+shortcut.h/2)+' H '+shortcut.r,false,false);}
+ const neckNode=canvas.querySelector('[data-id="neck"]');
+ for(const row of canvas.querySelectorAll('.flow')){const nodes=[...row.children].filter(e=>e.classList.contains('node'));for(let i=1;i<nodes.length;i++){if(opened.has('backbone')&&nodes[i-1].dataset.id==='backbone'&&nodes[i].dataset.id==='neck')continue;link(nodes[i-1],nodes[i]);}}
+ if(opened.has('backbone'))for(const d of [3,4,5]){
+  const stage=canvas.querySelector('[data-id="dark'+d+'"]');
+  for(const output of ports(stage,'out'))routeNeckInput(output,neckNode,d);
+ }
+ // Retained top-down features are separate inputs to bottom-up fusion.
+ if(opened.has('neck')&&(opened.has('necktopdown')||opened.has('neckbottomup'))){
+  const topNode=canvas.querySelector('[data-id="necktopdown"]'),bottomNode=canvas.querySelector('[data-id="neckbottomup"]');
+  const top=box(topNode),bottom=box(bottomNode),expanded=opened.has('necktopdown'),bottomExpanded=opened.has('neckbottomup');
+  for(const [id,above] of [['neckreduce',true],['neckreduce40',false]]){
+   const sourceNode=expanded?ports(canvas.querySelector('[data-id="'+id+'"]'),'out')[0]:topNode;
+   const target=box(bottomExpanded?canvas.querySelector('[data-id="neckbottomcat'+(above?'20':'40')+'"]'):bottomNode);
+   const source=box(sourceNode),sx=source.l+source.w*.65,tx=target.l+target.w*.5;
+   const sy=above?source.t+(expanded?0:source.h*.0875):source.b-(expanded?0:source.h*.0875);
+   const ty=above?target.t+(bottomExpanded?0:target.h*.125):target.b-(bottomExpanded?0:target.h*.125);
+   const y=above?Math.min(top.t,bottom.t)-45:Math.max(top.b,bottom.b)+45;
+   if(expanded){const group=box(canvas.querySelector('[data-id="'+id+'"]')),rail=group.r+35,cy=source.t+source.h/2;edge('M '+source.r+' '+cy+' H '+rail+' V '+y+' H '+tx+' V '+ty);labelShape(index.get(id).shape,(rail+tx)/2,y);}
+   else{edge('M '+sx+' '+sy+' V '+y+' H '+tx+' V '+ty);labelShape(index.get(id).shape,(sx+tx)/2,y);}
+  }
+ }
+ canvas.append(svg);
+ placeDimensionLabels(svg,box);
+}
+// Keep each dimension on its own horizontal segment, clear of frames and text.
+function placeDimensionLabels(svg,box){
+ const segments=[];
+ for(const path of svg.querySelectorAll('path')){
+  let x=0,y=0;for(const match of path.getAttribute('d').matchAll(/([MHVL])\s*([^MHVL]+)/g)){
+   const values=match[2].trim().split(/[ ,]+/).map(Number),command=match[1];let nx=x,ny=y;
+   if(command==='M'||command==='L'){nx=values[0];ny=values[1];}else if(command==='H')nx=values[0];else ny=values[0];
+   if(command!=='M')segments.push({x1:x,y1:y,x2:nx,y2:ny});x=nx;y=ny;
+  }
+ }
+ const frames=[...canvas.querySelectorAll('.node.open:not(.inline-branches)')].map(box);
+ const blocks=[...canvas.querySelectorAll('.node>.label')].flatMap(e=>e.parentNode.classList.contains('open')?[...e.querySelectorAll('strong,.action')].map(box):[box(e)]);
+ const placed=[];
+ for(const text of svg.querySelectorAll('text')){
+  const original=Number(text.getAttribute('x')),lineY=Number(text.dataset.edgeY),r=box(text),width=r.w,half=width/2+5;
+  const candidates=segments.filter(s=>Math.abs(s.y1-lineY)<.5&&Math.abs(s.y2-lineY)<.5&&original>=Math.min(s.x1,s.x2)-1&&original<=Math.max(s.x1,s.x2)+1).sort((a,b)=>Math.abs(b.x2-b.x1)-Math.abs(a.x2-a.x1));
+  let chosen=null;
+  for(const segment of candidates){
+   let intervals=[[Math.min(segment.x1,segment.x2)+half,Math.max(segment.x1,segment.x2)-half]];
+   const forbidden=[];
+   for(const b of [...blocks,...placed])if(r.b>b.t-4&&r.t<b.b+4)forbidden.push([b.l-half,b.r+half]);
+   for(const f of frames){
+    if(r.b>f.t-4&&r.t<f.b+4)forbidden.push([f.l-half-4,f.l+half+4],[f.r-half-4,f.r+half+4]);
+    if(r.t<f.t+4&&r.b>f.t-4||r.t<f.b+4&&r.b>f.b-4)forbidden.push([f.l-half,f.r+half]);
+   }
+   for(const s of segments)if(Math.abs(s.x1-s.x2)<.5&&Math.max(s.y1,s.y2)>r.t-3&&Math.min(s.y1,s.y2)<r.b+3)forbidden.push([s.x1-half-3,s.x1+half+3]);
+   for(const [l,h] of forbidden)intervals=intervals.flatMap(([a,b])=>h<a||l>b?[[a,b]]:[[a,Math.min(b,l)],[Math.max(a,h),b]].filter(([a,b])=>b>=a));
+   const possible=intervals.filter(([a,b])=>b>=a).map(([a,b])=>Math.max(a,Math.min(b,original))).sort((a,b)=>Math.abs(a-original)-Math.abs(b-original));
+   if(possible.length){chosen=possible[0];break;}
+  }
+  if(chosen!==null)text.setAttribute('x',chosen);
+  placed.push(box(text));
+ }
+}
+let connectionFrame=0;
+function trackConnections(){cancelAnimationFrame(connectionFrame);const end=performance.now()+350;function tick(){drawConnections();if(performance.now()<end)connectionFrame=requestAnimationFrame(tick);}connectionFrame=requestAnimationFrame(tick);}
+new ResizeObserver(()=>drawConnections()).observe(canvas);
+window.addEventListener('resize',drawConnections);
+
+function fitCurrentDiagram(){
+ hideInputPopup();drawConnections();
+ const connections=canvas.querySelector('.connections'),bounds=connections.getBBox();
+ const left=Math.min(0,bounds.x),top=Math.min(0,bounds.y),right=Math.max(canvas.offsetWidth,bounds.x+bounds.width),bottom=Math.max(canvas.offsetHeight,bounds.y+bounds.height);
+ const margin=24,controlBottom=document.getElementById('diagram-controls').getBoundingClientRect().bottom;
+ const availableWidth=Math.max(1,viewport.clientWidth-margin*2),availableTop=controlBottom+20,availableHeight=Math.max(1,viewport.clientHeight-availableTop-margin);
+ scale=Math.max(.001,Math.min(1,availableWidth/Math.max(1,right-left),availableHeight/Math.max(1,bottom-top)));
+ panX=margin+(availableWidth-(right-left)*scale)/2-left*scale;
+ panY=availableTop+(availableHeight-(bottom-top)*scale)/2-top*scale;updateCamera();
+}
+document.getElementById('diagram-home').onclick=fitCurrentDiagram;
+document.getElementById('diagram-collapse').onclick=()=>{opened.clear();selected=null;render();fitCurrentDiagram();};
+document.getElementById('diagram-expand').onclick=()=>{for(const node of index.values())if(node.children)opened.add(node.id);selected=null;render();fitCurrentDiagram();};
+
+function centerInitialDiagram(){panX=(viewport.clientWidth-canvas.offsetWidth*scale)/2;panY=(viewport.clientHeight-canvas.offsetHeight*scale)/2;updateCamera();}
+render();centerInitialDiagram();
+// Recheck after fonts settle so the initial center matches the final text layout.
+document.fonts.ready.then(centerInitialDiagram);
+</script>
+</body>
+</html>
